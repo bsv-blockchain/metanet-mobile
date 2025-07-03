@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,21 +6,29 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert
-} from 'react-native'
-import ConfigModal from '@/components/ConfigModal'
-import { router } from 'expo-router'
-import { StatusBar } from 'expo-status-bar'
-import { Ionicons } from '@expo/vector-icons'
-import AppLogo from '@/components/AppLogo'
-import { useTheme } from '@/context/theme/ThemeContext'
-import { useWallet } from '@/context/WalletContext'
-import { useLocalStorage } from '@/context/LocalStorageProvider'
-import { Utils } from '@bsv/sdk'
-import UniversalScanner from '@/components/UniversalScanner' // Use UniversalScanner
-import { Linking } from 'react-native' // Import Linking
+} from 'react-native';
+import ConfigModal from '@/components/ConfigModal';
+import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import AppLogo from '@/components/AppLogo';
+import { useTheme } from '@/context/theme/ThemeContext';
+import { useWallet } from '@/context/WalletContext';
+import { useLocalStorage } from '@/context/LocalStorageProvider';
+import { Utils } from '@bsv/sdk';
+import UniversalScanner from '@/components/UniversalScanner'; // Use UniversalScanner
+import { Linking } from 'react-native';
+import { WebView } from 'react-native-webview';
+
+// Declare scanCodeWithCamera as an optional property on the Window type
+declare global {
+  interface Window {
+    scanCodeWithCamera?: (reason: string) => Promise<string>;
+  }
+}
 
 export default function LoginScreen() {
-  const { colors, isDark } = useTheme()
+  const { colors, isDark } = useTheme();
   const {
     managers,
     selectedWabUrl,
@@ -28,137 +36,139 @@ export default function LoginScreen() {
     selectedMethod,
     selectedNetwork,
     finalizeConfig
-  } = useWallet()
-  const { getSnap, setItem, getItem } = useLocalStorage()
-  const [loading, setLoading] = React.useState(false)
-  const [initializing, setInitializing] = useState(true)
-  const [scannedData, setScannedData] = useState<string | null>(null)
-  const [showScanner, setShowScanner] = useState(false) // Define state with setter
+  } = useWallet();
+  const { getSnap, setItem, getItem } = useLocalStorage();
+  const [loading, setLoading] = React.useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [scannedData, setScannedData] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false); // State to show/hide scanner
+  const [webViewRef] = useState<any>(null); // Reference to WebView for Metanet app
+  const scanResolver = useRef<(data: string) => void | null>(null);
 
-  // Add scanner visibility toggle
-  const showUniversalScanner = () => {
-    setShowScanner(true) // Use the state setter from useState
-  }
+  const showUniversalScanner = useCallback(() => {
+    setShowScanner(true); // Use the state setter from useState
+  }, []);
 
   const handleGetStarted = async () => {
     try {
-      setLoading(true)
-      const res = await fetch(`${selectedWabUrl}/info`)
+      setLoading(true);
+      const res = await fetch(`${selectedWabUrl}/info`);
       if (!res.ok) {
-        throw new Error(`Failed to fetch info: ${res.status}`)
+        throw new Error(`Failed to fetch info: ${res.status}`);
       }
-      const wabInfo = await res.json()
+      const wabInfo = await res.json();
       console.log({
         wabInfo,
         selectedWabUrl,
         selectedMethod,
         selectedNetwork,
         selectedStorageUrl
-      })
+      });
       const finalConfig = {
         wabUrl: selectedWabUrl,
         wabInfo,
         method: selectedMethod || wabInfo.supportedAuthMethods[0],
         network: selectedNetwork,
         storageUrl: selectedStorageUrl
-      }
-      const success = finalizeConfig(finalConfig)
+      };
+      const success = finalizeConfig(finalConfig);
       if (!success) {
         Alert.alert(
           'Error',
           'Failed to finalize configuration. Please try again.'
-        )
-        return
+        );
+        return;
       }
-      await setItem('finalConfig', JSON.stringify(finalConfig))
-      const snap = await getSnap()
+      await setItem('finalConfig', JSON.stringify(finalConfig));
+      const snap = await getSnap();
       if (!snap) {
-        router.push('/auth/phone')
-        return
+        router.push('/auth/phone');
+        return;
       }
-      await managers?.walletManager?.loadSnapshot(snap)
-      router.replace('/browser')
+      await managers?.walletManager?.loadSnapshot(snap);
+      router.replace('/browser');
     } catch (error) {
-      console.error(error)
-      Alert.alert('Error', 'Failed to get started. Please try again.')
+      console.error(error);
+      Alert.alert('Error', 'Failed to get started. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const [showConfig, setShowConfig] = useState(false)
+  const [showConfig, setShowConfig] = useState(false);
 
   const handleConfig = () => {
-    setShowConfig(true)
-  }
+    setShowConfig(true);
+  };
 
   const handleConfigDismiss = () => {
-    setShowConfig(false)
-  }
+    setShowConfig(false);
+  };
 
   const handleConfigured = async () => {
     try {
-      const finalConfig = JSON.parse((await getItem('finalConfig')) || '')
-      const success = finalizeConfig(finalConfig)
-      if (!success) return
-      const snap = await getSnap()
+      const finalConfig = JSON.parse((await getItem('finalConfig')) || '');
+      const success = finalizeConfig(finalConfig);
+      if (!success) return;
+      const snap = await getSnap();
       if (!snap) {
-        router.push('/auth/phone')
-        return
+        router.push('/auth/phone');
+        return;
       }
-      const snapArr = Utils.toArray(snap, 'base64')
-      await managers?.walletManager?.loadSnapshot(snapArr)
-      router.replace('/browser')
+      const snapArr = Utils.toArray(snap, 'base64');
+      await managers?.walletManager?.loadSnapshot(snapArr);
+      router.replace('/browser');
     } catch (error) {
-      console.error(error)
-      Alert.alert('Error', 'Failed to authenticate. Please try again.')
+      console.error(error);
+      Alert.alert('Error', 'Failed to authenticate. Please try again.');
     }
-  }
+  };
 
   useEffect(() => {
-    ;(async () => {
+    (async () => {
       try {
-        const snap = await getSnap()
+        const snap = await getSnap();
         if (snap) {
-          await managers?.walletManager?.loadSnapshot(snap)
-          router.replace('/browser')
+          await managers?.walletManager?.loadSnapshot(snap);
+          router.replace('/browser');
         }
       } finally {
-        setInitializing(false)
+        setInitializing(false);
       }
-    })()
-  }, [getSnap, managers?.walletManager])
+    })();
+  }, [getSnap, managers?.walletManager]);
 
   // Handle scanned data
   useEffect(() => {
-    if (scannedData) {
-      if (scannedData.startsWith('bitcoincash:')) {
-        // Since /payment isn't in the original codebase, navigate to /browser with payment info
-        router.push({
-          pathname: '/browser' as const,
-          params: { url: scannedData, isPayment: 'true' }
-        })
-      } else if (scannedData.startsWith('metanet:')) {
-        router.push({
-          pathname: '/browser' as const,
-          params: { url: scannedData }
-        })
-      } else {
-        Alert.alert('Scan Result', `Data: ${scannedData}`, [
-          { text: 'OK', onPress: () => setScannedData(null) },
-          {
-            text: 'Open Link',
-            onPress: () => {
-              Linking.openURL(scannedData).catch(() =>
-                Alert.alert('Error', 'Invalid URL')
-              )
-              setScannedData(null)
-            }
-          }
-        ])
-      }
+    if (scannedData && scanResolver.current) {
+      scanResolver.current(scannedData);
+      scanResolver.current = null;
+      setShowScanner(false);
+      setScannedData(null);
     }
-  }, [scannedData])
+  }, [scannedData]);
+
+  // Inject scanCodeWithCamera into window for Metanet apps
+  useEffect(() => {
+    window.scanCodeWithCamera = async (reason: string): Promise<string> => {
+      return new Promise(resolve => {
+        console.log(`Scanning initiated for reason: ${reason}`);
+        scanResolver.current = resolve;
+        setShowScanner(true);
+        // Auto-dismiss after 30s if not scanned
+        const timeout = setTimeout(() => {
+          if (scanResolver.current) {
+            scanResolver.current('');
+            scanResolver.current = null;
+            setShowScanner(false);
+          }
+        }, 30000);
+        // Cleanup on unmount or resolve
+        return () => clearTimeout(timeout);
+      });
+    };
+    // No need to delete if optional
+  }, []);
 
   return (
     <SafeAreaView
@@ -207,7 +217,7 @@ export default function LoginScreen() {
                   opacity: loading ? 0.2 : 1
                 }
               ]}
-              onPress={showUniversalScanner}
+              onPress={showUniversalScanner} // Use callback directly
               disabled={loading}
             >
               <Text
@@ -241,11 +251,17 @@ export default function LoginScreen() {
             {showScanner && (
               <UniversalScanner setScannedData={setScannedData} />
             )}
+            <WebView
+              ref={webViewRef}
+              source={{ uri: 'about:blank' }} // Placeholder, replace with Metanet app URL
+              style={StyleSheet.absoluteFill}
+              onMessage={event => console.log(event.nativeEvent.data)} // Optional: handle messages
+            />
           </>
         )}
       </View>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -334,4 +350,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 15
   }
-})
+});
