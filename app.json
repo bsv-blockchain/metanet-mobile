@@ -115,7 +115,8 @@
             }
           }
         }
-      ]
+      ],
+      "jsEngine": "hermes"
     },
     "ios": {
       "bundleIdentifier": "org.bsvblockchain.metanet",
@@ -154,6 +155,7 @@
       "iosDisplayInForeground": true,
       "androidMode": "default",
       "androidCollapsedTitle": "#{unread_notifications} new interactions"
-    }
+    },
+    "jsEngine": "hermes"
   }
 }

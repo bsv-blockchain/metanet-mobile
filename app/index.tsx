@@ -1,35 +1,60 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView , Alert } from 'react-native';
-import ConfigModal from '@/components/ConfigModal';
-import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import AppLogo from '@/components/AppLogo';
-import { useTheme } from '@/context/theme/ThemeContext';
-import { useWallet } from '@/context/WalletContext';
-import { useLocalStorage } from '@/context/LocalStorageProvider';
-import { Utils } from '@bsv/sdk';
+import React, { useEffect, useState } from 'react'
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  Alert
+} from 'react-native'
+import ConfigModal from '@/components/ConfigModal'
+import { router } from 'expo-router'
+import { StatusBar } from 'expo-status-bar'
+import { Ionicons } from '@expo/vector-icons'
+import AppLogo from '@/components/AppLogo'
+import { useTheme } from '@/context/theme/ThemeContext'
+import { useWallet } from '@/context/WalletContext'
+import { useLocalStorage } from '@/context/LocalStorageProvider'
+import { Utils } from '@bsv/sdk'
+import UniversalScanner from '@/components/UniversalScanner' // Use UniversalScanner
+import { Linking } from 'react-native' // Import Linking
 
 export default function LoginScreen() {
-  // Get theme colors
-  const { colors, isDark } = useTheme();
-  const { managers, selectedWabUrl, selectedStorageUrl, selectedMethod, selectedNetwork, finalizeConfig } = useWallet();
-  const { getSnap, setItem, getItem } = useLocalStorage();
-  const [loading, setLoading] = React.useState(false);
+  const { colors, isDark } = useTheme()
+  const {
+    managers,
+    selectedWabUrl,
+    selectedStorageUrl,
+    selectedMethod,
+    selectedNetwork,
+    finalizeConfig
+  } = useWallet()
+  const { getSnap, setItem, getItem } = useLocalStorage()
+  const [loading, setLoading] = React.useState(false)
   const [initializing, setInitializing] = useState(true)
+  const [scannedData, setScannedData] = useState<string | null>(null)
+  const [showScanner, setShowScanner] = useState(false) // Define state with setter
 
-  // Navigate to phone auth screen
+  // Add scanner visibility toggle
+  const showUniversalScanner = () => {
+    setShowScanner(true) // Use the state setter from useState
+  }
+
   const handleGetStarted = async () => {
     try {
       setLoading(true)
-      
-      // Fetch WAB info
       const res = await fetch(`${selectedWabUrl}/info`)
       if (!res.ok) {
         throw new Error(`Failed to fetch info: ${res.status}`)
       }
       const wabInfo = await res.json()
-      console.log({ wabInfo, selectedWabUrl, selectedMethod, selectedNetwork, selectedStorageUrl })
+      console.log({
+        wabInfo,
+        selectedWabUrl,
+        selectedMethod,
+        selectedNetwork,
+        selectedStorageUrl
+      })
       const finalConfig = {
         wabUrl: selectedWabUrl,
         wabInfo,
@@ -39,67 +64,59 @@ export default function LoginScreen() {
       }
       const success = finalizeConfig(finalConfig)
       if (!success) {
-        Alert.alert('Error', 'Failed to finalize configuration. Please try again.');
+        Alert.alert(
+          'Error',
+          'Failed to finalize configuration. Please try again.'
+        )
         return
       }
       await setItem('finalConfig', JSON.stringify(finalConfig))
-      
-      // if there's a wallet snapshot, load that
       const snap = await getSnap()
       if (!snap) {
-        router.push('/auth/phone');
+        router.push('/auth/phone')
         return
       }
       await managers?.walletManager?.loadSnapshot(snap)
-      
       router.replace('/browser')
-      return
     } catch (error) {
       console.error(error)
-      Alert.alert('Error', 'Failed to get started. Please try again.');
+      Alert.alert('Error', 'Failed to get started. Please try again.')
     } finally {
       setLoading(false)
     }
-  };
+  }
 
-  // Config modal state
-  const [showConfig, setShowConfig] = useState(false);
+  const [showConfig, setShowConfig] = useState(false)
 
-  // Handle config modal
   const handleConfig = () => {
-    setShowConfig(true);
-  };
+    setShowConfig(true)
+  }
 
   const handleConfigDismiss = () => {
-    setShowConfig(false);
-  };
+    setShowConfig(false)
+  }
 
   const handleConfigured = async () => {
-    // After successful config, proceed with auth
     try {
-      const finalConfig = JSON.parse(await getItem('finalConfig') || '')
+      const finalConfig = JSON.parse((await getItem('finalConfig')) || '')
       const success = finalizeConfig(finalConfig)
-      if (!success) {
-        return
-      }
-      const snap = await getSnap();
+      if (!success) return
+      const snap = await getSnap()
       if (!snap) {
-        router.push('/auth/phone');
+        router.push('/auth/phone')
         return
       }
-      const snapArr = Utils.toArray(snap, 'base64');
-      await managers?.walletManager?.loadSnapshot(snapArr);
-      
-      router.replace('/browser');
+      const snapArr = Utils.toArray(snap, 'base64')
+      await managers?.walletManager?.loadSnapshot(snapArr)
+      router.replace('/browser')
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'Failed to authenticate. Please try again.');
+      console.error(error)
+      Alert.alert('Error', 'Failed to authenticate. Please try again.')
     }
-  };
+  }
 
-  // Initial app load
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       try {
         const snap = await getSnap()
         if (snap) {
@@ -112,66 +129,137 @@ export default function LoginScreen() {
     })()
   }, [getSnap, managers?.walletManager])
 
+  // Handle scanned data
+  useEffect(() => {
+    if (scannedData) {
+      if (scannedData.startsWith('bitcoincash:')) {
+        // Since /payment isn't in the original codebase, navigate to /browser with payment info
+        router.push({
+          pathname: '/browser' as const,
+          params: { url: scannedData, isPayment: 'true' }
+        })
+      } else if (scannedData.startsWith('metanet:')) {
+        router.push({
+          pathname: '/browser' as const,
+          params: { url: scannedData }
+        })
+      } else {
+        Alert.alert('Scan Result', `Data: ${scannedData}`, [
+          { text: 'OK', onPress: () => setScannedData(null) },
+          {
+            text: 'Open Link',
+            onPress: () => {
+              Linking.openURL(scannedData).catch(() =>
+                Alert.alert('Error', 'Invalid URL')
+              )
+              setScannedData(null)
+            }
+          }
+        ])
+      }
+    }
+  }, [scannedData])
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.contentContainer,
+          { backgroundColor: colors.background }
+        ]}
+      >
         <View style={styles.logoContainer}>
           <AppLogo />
         </View>
         {!initializing && (
           <>
-        <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Metanet</Text>
-        <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
-          Browser with identity and payments built in
-        </Text>
-        
-        <TouchableOpacity 
-          style={[styles.getStartedButton, { backgroundColor: colors.primary, opacity: loading ? 0.2 : 1 }]} 
-          onPress={handleGetStarted}
-          disabled={loading}
-        >
-          <Text style={[styles.getStartedButtonText, { color: colors.buttonText }]}>Get Started</Text>
-        </TouchableOpacity>
-        
-        <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-          By continuing, you agree to our Terms of Service and Privacy Policy
-        </Text>
-        
-        <TouchableOpacity 
-          style={styles.configButton} 
-          onPress={handleConfig}
-        >
-          <View style={styles.configIconContainer}>
-            <Ionicons name="settings-outline" size={20} color={colors.secondary} />
-            <Text style={styles.configButtonText}>Configure Providers</Text>
-          </View>
-        </TouchableOpacity>
-
-        <ConfigModal
-          visible={showConfig}
-          onDismiss={handleConfigDismiss}
-          onConfigured={handleConfigured}
-        />
-        </>
+            <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>
+              Metanet
+            </Text>
+            <Text style={[styles.welcomeText, { color: colors.textSecondary }]}>
+              Browser with identity and payments built in
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.getStartedButton,
+                { backgroundColor: colors.primary, opacity: loading ? 0.2 : 1 }
+              ]}
+              onPress={handleGetStarted}
+              disabled={loading}
+            >
+              <Text
+                style={[
+                  styles.getStartedButtonText,
+                  { color: colors.buttonText }
+                ]}
+              >
+                Get Started
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.scannerButton,
+                {
+                  backgroundColor: colors.secondary,
+                  opacity: loading ? 0.2 : 1
+                }
+              ]}
+              onPress={showUniversalScanner}
+              disabled={loading}
+            >
+              <Text
+                style={[styles.scannerButtonText, { color: colors.buttonText }]}
+              >
+                Scan QR Code
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.termsText, { color: colors.textSecondary }]}>
+              By continuing, you agree to our Terms of Service and Privacy
+              Policy
+            </Text>
+            <TouchableOpacity
+              style={styles.configButton}
+              onPress={handleConfig}
+            >
+              <View style={styles.configIconContainer}>
+                <Ionicons
+                  name="settings-outline"
+                  size={20}
+                  color={colors.secondary}
+                />
+                <Text style={styles.configButtonText}>Configure Providers</Text>
+              </View>
+            </TouchableOpacity>
+            <ConfigModal
+              visible={showConfig}
+              onDismiss={handleConfigDismiss}
+              onConfigured={handleConfigured}
+            />
+            {showScanner && (
+              <UniversalScanner setScannedData={setScannedData} />
+            )}
+          </>
         )}
       </View>
     </SafeAreaView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1
   },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   logoContainer: {
-    marginBottom: 40,
+    marginBottom: 40
   },
   logoPlaceholder: {
     width: 100,
@@ -179,23 +267,23 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     backgroundColor: '#0066cc',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   logoText: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: 'white',
+    color: 'white'
   },
   welcomeTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   welcomeText: {
     fontSize: 16,
     marginBottom: 30,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   getStartedButton: {
     paddingVertical: 15,
@@ -203,34 +291,47 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '100%',
     alignItems: 'center',
+    marginBottom: 10
+  },
+  scannerButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10
   },
   getStartedButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'bold'
+  },
+  scannerButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold'
   },
   configButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 50,
-    padding: 10,
+    padding: 10
   },
   configIconContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 8
   },
   configButtonText: {
     color: '#0066cc',
     fontSize: 14,
-    marginLeft: 2,
+    marginLeft: 2
   },
   chevronIcon: {
-    marginRight: 2,
+    marginRight: 2
   },
   termsText: {
     fontSize: 12,
     textAlign: 'center',
-    marginTop: 15,
-  },
-});
+    marginTop: 15
+  }
+})
