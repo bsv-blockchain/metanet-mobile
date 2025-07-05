@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "metanet",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -156,6 +156,9 @@
       "androidMode": "default",
       "androidCollapsedTitle": "#{unread_notifications} new interactions"
     },
-    "jsEngine": "hermes"
+    "reactNativeConfig": {
+      "enableHermes": true,
+      "enableFabricRenderer": false
+    }
   }
 }

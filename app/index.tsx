@@ -1,4 +1,7 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { enableScreens } from 'react-native-screens'; // Add this import
+enableScreens(); // Call this immediately before any UI components
+
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,9 +19,10 @@ import { useTheme } from '@/context/theme/ThemeContext';
 import { useWallet } from '@/context/WalletContext';
 import { useLocalStorage } from '@/context/LocalStorageProvider';
 import { Utils } from '@bsv/sdk';
-import UniversalScanner from '@/components/UniversalScanner'; // Use UniversalScanner
+import UniversalScanner, { ScannerHandle } from '@/components/UniversalScanner'; // Import with type
 import { Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { logWithTimestamp } from '@/utils/logging'; // Local import with @
 
 // Declare scanCodeWithCamera as an optional property on the Window type
 declare global {
@@ -27,7 +31,7 @@ declare global {
   }
 }
 
-export default function LoginScreen() {
+const LoginScreen = () => {
   const { colors, isDark } = useTheme();
   const {
     managers,
@@ -42,11 +46,15 @@ export default function LoginScreen() {
   const [initializing, setInitializing] = useState(true);
   const [scannedData, setScannedData] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false); // State to show/hide scanner
+  const [initialMount, setInitialMount] = useState(true); // Track initial mount
   const [webViewRef] = useState<any>(null); // Reference to WebView for Metanet app
   const scanResolver = useRef<(data: string) => void | null>(null);
+  const scannerRef = useRef<ScannerHandle>(null); // Typed ref
 
   const showUniversalScanner = useCallback(() => {
-    setShowScanner(true); // Use the state setter from useState
+    logWithTimestamp('app/index', 'Scan button pressed v1.3', { showScanner });
+    setShowScanner(true);
+    setInitialMount(false); // Reset initial mount flag
   }, []);
 
   const handleGetStarted = async () => {
@@ -138,26 +146,56 @@ export default function LoginScreen() {
     })();
   }, [getSnap, managers?.walletManager]);
 
-  // Handle scanned data
+  // Single effect for scannedData handling with stricter condition
   useEffect(() => {
-    if (scannedData && scanResolver.current) {
+    logWithTimestamp('app/index', 'Scanned data updated v1.3', {
+      scannedData,
+      showScanner,
+      initialMount
+    });
+    if (
+      !initialMount &&
+      scannedData === null &&
+      showScanner &&
+      scannedData !== undefined
+    ) {
+      // Added scannedData !== undefined to avoid initial null
+      setTimeout(() => {
+        if (showScanner) {
+          // Only unmount if still visible
+          logWithTimestamp(
+            'app/index',
+            'Setting showScanner to false after scan or timeout v1.3'
+          );
+          setShowScanner(false); // Ensure unmount after scan resolution or timeout
+          logWithTimestamp(
+            'app/index',
+            'Closing scanner due to scannedData being null v1.3'
+          );
+        }
+      }, 100); // Increased delay to 100ms for stability
+    } else if (scannedData && scanResolver.current) {
+      logWithTimestamp('app/index', 'Resolving scan data v1.3', {
+        scannedData
+      });
       scanResolver.current(scannedData);
       scanResolver.current = null;
-      setShowScanner(false);
-      setScannedData(null);
+      setScannedData(null); // Clear after resolution
     }
-  }, [scannedData]);
+  }, [scannedData, initialMount]);
 
   // Inject scanCodeWithCamera into window for Metanet apps
   useEffect(() => {
     window.scanCodeWithCamera = async (reason: string): Promise<string> => {
       return new Promise(resolve => {
-        console.log(`Scanning initiated for reason: ${reason}`);
+        logWithTimestamp('app/index', 'Scan initiated v1.3', { reason });
         scanResolver.current = resolve;
         setShowScanner(true);
+        setInitialMount(false); // Reset on new scan request
         // Auto-dismiss after 30s if not scanned
         const timeout = setTimeout(() => {
           if (scanResolver.current) {
+            logWithTimestamp('app/index', 'Scan timed out v1.3');
             scanResolver.current('');
             scanResolver.current = null;
             setShowScanner(false);
@@ -167,7 +205,6 @@ export default function LoginScreen() {
         return () => clearTimeout(timeout);
       });
     };
-    // No need to delete if optional
   }, []);
 
   return (
@@ -217,7 +254,7 @@ export default function LoginScreen() {
                   opacity: loading ? 0.2 : 1
                 }
               ]}
-              onPress={showUniversalScanner} // Use callback directly
+              onPress={showUniversalScanner}
               disabled={loading}
             >
               <Text
@@ -249,12 +286,37 @@ export default function LoginScreen() {
               onConfigured={handleConfigured}
             />
             {showScanner && (
-              <UniversalScanner setScannedData={setScannedData} />
+              <View style={styles.scannerOverlay}>
+                <UniversalScanner
+                  ref={scannerRef}
+                  scannedData={scannedData} // Pass scannedData as prop
+                  setScannedData={setScannedData}
+                  showScanner={showScanner}
+                  onDismiss={() => {
+                    try {
+                      if (scannerRef.current) {
+                        logWithTimestamp(
+                          'app/index',
+                          'Attempting dismiss via ref v1.3'
+                        );
+                        scannerRef.current.dismiss();
+                      }
+                    } catch (error) {
+                      logWithTimestamp(
+                        'app/index',
+                        'Error during ref dismiss v1.3',
+                        { error }
+                      );
+                    }
+                    setShowScanner(false);
+                  }} // Direct unmount via ref with error handling
+                />
+              </View>
             )}
             <WebView
               ref={webViewRef}
               source={{ uri: 'about:blank' }} // Placeholder, replace with Metanet app URL
-              style={StyleSheet.absoluteFill}
+              style={styles.webView}
               onMessage={event => console.log(event.nativeEvent.data)} // Optional: handle messages
             />
           </>
@@ -262,7 +324,9 @@ export default function LoginScreen() {
       </View>
     </SafeAreaView>
   );
-}
+};
+
+export default LoginScreen; // Ensure default export
 
 const styles = StyleSheet.create({
   container: {
@@ -349,5 +413,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 15
+  },
+  scannerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10, // Ensure scanner is above other content
+    backgroundColor: 'rgba(0, 0, 0, 0.5)' // Match scanner background
+  },
+  webView: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1 // Below scanner overlay
   }
 });

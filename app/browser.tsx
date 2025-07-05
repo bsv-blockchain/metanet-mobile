@@ -1,5 +1,11 @@
 /* eslint-disable react/no-unstable-nested-components */
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo
+} from 'react';
 import {
   Animated,
   Dimensions,
@@ -17,38 +23,46 @@ import {
   KeyboardAvoidingView,
   LayoutAnimation,
   ScrollView,
-  Alert,
-} from 'react-native'
-import { StatusBar } from 'expo-status-bar'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+  Alert
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import {
+  SafeAreaView,
+  useSafeAreaInsets
+} from 'react-native-safe-area-context';
 import {
   WebView,
   WebViewMessageEvent,
   WebViewNavigation
-} from 'react-native-webview'
-import Modal from 'react-native-modal'
-import { GestureHandlerRootView, Swipeable, PanGestureHandler, State as GestureState } from 'react-native-gesture-handler'
-import { TabView, SceneMap } from 'react-native-tab-view'
-import Fuse from 'fuse.js'
-import * as Linking from 'expo-linking'
-import { Ionicons } from '@expo/vector-icons'
-import { observer } from 'mobx-react-lite'
+} from 'react-native-webview';
+import Modal from 'react-native-modal';
+import {
+  GestureHandlerRootView,
+  Swipeable,
+  PanGestureHandler,
+  State as GestureState
+} from 'react-native-gesture-handler';
+import { TabView, SceneMap } from 'react-native-tab-view';
+import Fuse from 'fuse.js';
+import * as Linking from 'expo-linking';
+import { Ionicons } from '@expo/vector-icons';
+import { observer } from 'mobx-react-lite';
 
-import { useTheme } from '@/context/theme/ThemeContext'
-import { useWallet } from '@/context/WalletContext'
-import { WalletInterface } from '@bsv/sdk'
-import { RecommendedApps } from '@/components/RecommendedApps'
-import { useLocalStorage } from '@/context/LocalStorageProvider'
-import Balance from '@/components/Balance'
-import type { Bookmark, HistoryEntry, Tab } from '@/shared/types/browser'
-import { HistoryList } from '@/components/HistoryList'
-import { isValidUrl } from '@/utils/generalHelpers'
-import tabStore from '../stores/TabStore'
-import bookmarkStore from '@/stores/BookmarkStore'
-import SettingsScreen from './settings'
-import IdentityScreen from './identity'
-import SecurityScreen from './security'
-import TrustScreen from './trust'
+import { useTheme } from '@/context/theme/ThemeContext';
+import { useWallet } from '@/context/WalletContext';
+import { WalletInterface } from '@bsv/sdk';
+import { RecommendedApps } from '@/components/RecommendedApps';
+import { useLocalStorage } from '@/context/LocalStorageProvider';
+import Balance from '@/components/Balance';
+import type { Bookmark, HistoryEntry, Tab } from '@/shared/types/browser';
+import { HistoryList } from '@/components/HistoryList';
+import { isValidUrl } from '@/utils/generalHelpers';
+import tabStore from '../stores/TabStore';
+import bookmarkStore from '@/stores/BookmarkStore';
+import SettingsScreen from './settings';
+import IdentityScreen from './identity';
+import SecurityScreen from './security';
+import TrustScreen from './trust';
 
 /* -------------------------------------------------------------------------- */
 /*                                   HELPERS                                   */
@@ -61,24 +75,25 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { getPendingUrl, clearPendingUrl } from '@/hooks/useDeepLinking';
 import { useWebAppManifest } from '@/hooks/useWebAppManifest';
 import * as Notifications from 'expo-notifications';
+import UniversalScanner, { ScannerHandle } from '@/components/UniversalScanner';
 
 /* -------------------------------------------------------------------------- */
 /*                                   CONSTS                                   */
 /* -------------------------------------------------------------------------- */
 
-const kNEW_TAB_URL = 'about:blank'
-const kGOOGLE_PREFIX = 'https://www.google.com/search?q='
-const HISTORY_KEY = 'history'
+const kNEW_TAB_URL = 'about:blank';
+const kGOOGLE_PREFIX = 'https://www.google.com/search?q=';
+const HISTORY_KEY = 'history';
 
 function getInjectableJSMessage(message: any = {}) {
-  const messageString = JSON.stringify(message)
+  const messageString = JSON.stringify(message);
   return `
     (function() {
       window.dispatchEvent(new MessageEvent('message', {
         data: JSON.stringify(${messageString})
       }));
     })();
-  `
+  `;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -99,14 +114,21 @@ function StarDrawer({
   index: number;
   setIndex: (index: number) => void;
 }) {
-  const routes = useMemo(() => [
-    { key: 'bookmarks', title: 'Bookmarks' },
-    { key: 'history', title: 'History' }
-  ], []);
-  const renderScene = useMemo(() => SceneMap({
-    bookmarks: BookmarksScene,
-    history: HistoryScene
-  }), [BookmarksScene, HistoryScene]);
+  const routes = useMemo(
+    () => [
+      { key: 'bookmarks', title: 'Bookmarks' },
+      { key: 'history', title: 'History' }
+    ],
+    []
+  );
+  const renderScene = useMemo(
+    () =>
+      SceneMap({
+        bookmarks: BookmarksScene,
+        history: HistoryScene
+      }),
+    [BookmarksScene, HistoryScene]
+  );
   return (
     <View style={{ flex: 1 }}>
       <TabView
@@ -129,8 +151,7 @@ function StarDrawer({
                   style={[
                     styles.starTabLabel,
                     {
-                      color:
-                        i === index ? colors.primary : colors.textSecondary
+                      color: i === index ? colors.primary : colors.textSecondary
                     }
                   ]}
                 >
@@ -151,42 +172,42 @@ function StarDrawer({
 
 function Browser() {
   /* --------------------------- theme / basic hooks -------------------------- */
-  const { colors, isDark } = useTheme()
-  const insets = useSafeAreaInsets()
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
 
   /* ----------------------------- wallet context ----------------------------- */
-  const { managers } = useWallet()
-  const [wallet, setWallet] = useState<WalletInterface | undefined>()
+  const { managers } = useWallet();
+  const [wallet, setWallet] = useState<WalletInterface | undefined>();
   useEffect(() => {
     if (managers?.walletManager?.authenticated)
-      setWallet(managers.walletManager)
-  }, [managers])
+      setWallet(managers.walletManager);
+  }, [managers]);
 
   /* ---------------------------- storage helpers ----------------------------- */
-  const { getItem, setItem } = useLocalStorage()
+  const { getItem, setItem } = useLocalStorage();
 
   /* -------------------------------- history -------------------------------- */
   const loadHistory = useCallback(async (): Promise<HistoryEntry[]> => {
-    const raw = await getItem(HISTORY_KEY)
-    const data = raw ? (JSON.parse(raw) as HistoryEntry[]) : []
+    const raw = await getItem(HISTORY_KEY);
+    const data = raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
     return data.map(h => ({
       ...h,
       url: isValidUrl(h.url) ? h.url : kNEW_TAB_URL
-    }))
-  }, [getItem])
+    }));
+  }, [getItem]);
 
-  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   useEffect(() => {
-    loadHistory().then(setHistory)
-  }, [loadHistory])
+    loadHistory().then(setHistory);
+  }, [loadHistory]);
 
   const saveHistory = useCallback(
     async (list: HistoryEntry[]) => {
-      setHistory(list)
-      await setItem(HISTORY_KEY, JSON.stringify(list))
+      setHistory(list);
+      await setItem(HISTORY_KEY, JSON.stringify(list));
     },
     [setItem]
-  )
+  );
 
   const pushHistory = useCallback(
     async (entry: HistoryEntry) => {
@@ -194,43 +215,48 @@ function Browser() {
         history.length &&
         history[0].url.replace(/\/$/, '') === entry.url.replace(/\/$/, '')
       )
-        return
-      const next = [entry, ...history].slice(0, 500)
-      await saveHistory(next)
+        return;
+      const next = [entry, ...history].slice(0, 500);
+      await saveHistory(next);
     },
     [history, saveHistory]
-  )
+  );
 
   const removeHistoryItem = useCallback(
     async (url: string) => {
-      const next = history.filter(h => h.url !== url)
-      await saveHistory(next)
+      const next = history.filter(h => h.url !== url);
+      await saveHistory(next);
     },
     [history, saveHistory]
-  )
+  );
 
   const clearHistory = useCallback(async () => {
-    await saveHistory([])
-  }, [saveHistory])
+    await saveHistory([]);
+  }, [saveHistory]);
 
   /* -------------------------------- bookmarks ------------------------------- */
   const addBookmark = useCallback((title: string, url: string) => {
-  // Only add bookmarks for valid URLs that aren't the new tab page
-  if (url && url !== kNEW_TAB_URL && isValidUrl(url) && !url.includes('about:blank')) {
-    bookmarkStore.addBookmark(title, url)
-  }
-  }, [])
+    // Only add bookmarks for valid URLs that aren't the new tab page
+    if (
+      url &&
+      url !== kNEW_TAB_URL &&
+      isValidUrl(url) &&
+      !url.includes('about:blank')
+    ) {
+      bookmarkStore.addBookmark(title, url);
+    }
+  }, []);
 
   const removeBookmark = useCallback((url: string) => {
-    bookmarkStore.removeBookmark(url)
-  }, [])
+    bookmarkStore.removeBookmark(url);
+  }, []);
 
   /* ---------------------------------- tabs --------------------------------- */
-  const activeTab = tabStore.activeTab!
+  const activeTab = tabStore.activeTab!;
 
   /* -------------------------- ui / animation state -------------------------- */
-  const addressEditing = useRef(false)
-  const [addressText, setAddressText] = useState(kNEW_TAB_URL)
+  const addressEditing = useRef(false);
+  const [addressText, setAddressText] = useState(kNEW_TAB_URL);
   const [addressFocused, setAddressFocused] = useState(false);
   const [addressBarHeight, setAddressBarHeight] = useState(0);
 
@@ -238,17 +264,21 @@ function Browser() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
-  const [infoDrawerRoute, setInfoDrawerRoute] = useState<'root' | 'identity' | 'settings' | 'security' | 'trust' | 'notifications'>('root');
+  const [infoDrawerRoute, setInfoDrawerRoute] = useState<
+    'root' | 'identity' | 'settings' | 'security' | 'trust' | 'notifications'
+  >('root');
   const drawerAnim = useRef(new Animated.Value(0)).current;
 
-  const [showTabsView, setShowTabsView] = useState(false)
-  const [showStarDrawer, setShowStarDrawer] = useState(false)
+  const [showTabsView, setShowTabsView] = useState(false);
+  const [showStarDrawer, setShowStarDrawer] = useState(false);
   const [starTabIndex, setStarTabIndex] = useState(0);
-  const starDrawerAnim = useRef(new Animated.Value(0)).current
+  const starDrawerAnim = useRef(new Animated.Value(0)).current;
 
   const addressInputRef = useRef<TextInput>(null);
   const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
-  const { manifest, fetchManifest, getStartUrl, shouldRedirectToStartUrl } = useWebAppManifest();  const [showBalance, setShowBalance] = useState(false);
+  const { manifest, fetchManifest, getStartUrl, shouldRedirectToStartUrl } =
+    useWebAppManifest();
+  const [showBalance, setShowBalance] = useState(false);
 
   // Balance handling - only delay on first open
   useEffect(() => {
@@ -266,21 +296,26 @@ function Browser() {
     createPushSubscription,
     unsubscribe,
     getPermission,
-    getSubscription,
+    getSubscription
   } = usePushNotifications();
 
-  const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
-  const [showNotificationSettingsModal, setShowNotificationSettingsModal] = useState(false);
-  const [notificationRequestOrigin, setNotificationRequestOrigin] = useState('');
-  const [notificationRequestResolver, setNotificationRequestResolver] = useState<((granted: boolean) => void) | null>(null);
-
+  const [showNotificationPermissionModal, setShowNotificationPermissionModal] =
+    useState(false);
+  const [showNotificationSettingsModal, setShowNotificationSettingsModal] =
+    useState(false);
+  const [notificationRequestOrigin, setNotificationRequestOrigin] =
+    useState('');
+  const [notificationRequestResolver, setNotificationRequestResolver] =
+    useState<((granted: boolean) => void) | null>(null);
 
   /* ------------------------------ keyboard hook ----------------------------- */
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSub = Keyboard.addListener(showEvent, (event) => {
+    const showSub = Keyboard.addListener(showEvent, event => {
       setKeyboardVisible(true);
       const height = event.endCoordinates.height;
       setKeyboardHeight(height);
@@ -319,12 +354,16 @@ function Browser() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Manifest checking useEffect 
+  // Manifest checking useEffect
   useEffect(() => {
     let isCancelled = false;
 
     const handleManifest = async () => {
-      if (activeTab.url === kNEW_TAB_URL || !activeTab.url.startsWith('http') || activeTab.isLoading) {
+      if (
+        activeTab.url === kNEW_TAB_URL ||
+        !activeTab.url.startsWith('http') ||
+        activeTab.isLoading
+      ) {
         return;
       }
 
@@ -345,7 +384,10 @@ function Browser() {
           }
 
           const url = new URL(activeTab.url);
-          if (shouldRedirectToStartUrl(manifestData, activeTab.url) && url.pathname === '/') {
+          if (
+            shouldRedirectToStartUrl(manifestData, activeTab.url) &&
+            url.pathname === '/'
+          ) {
             const startUrl = getStartUrl(manifestData, activeTab.url);
             // console.log('Redirecting to start_url:', startUrl);
             updateActiveTab({ url: startUrl });
@@ -358,7 +400,11 @@ function Browser() {
     };
 
     const timeoutId = setTimeout(() => {
-      if (!activeTab.isLoading && activeTab.url !== kNEW_TAB_URL && activeTab.url.startsWith('http')) {
+      if (
+        !activeTab.isLoading &&
+        activeTab.url !== kNEW_TAB_URL &&
+        activeTab.url.startsWith('http')
+      ) {
         handleManifest();
       }
     }, 1000);
@@ -374,78 +420,80 @@ function Browser() {
   /* -------------------------------------------------------------------------- */
   const domainForUrl = useCallback((u: string): string => {
     try {
-      if (u === kNEW_TAB_URL) return ''
-      const { hostname } = new URL(u)
-      return hostname
+      if (u === kNEW_TAB_URL) return '';
+      const { hostname } = new URL(u);
+      return hostname;
     } catch {
-      return u
+      return u;
     }
-  }, [])
+  }, []);
   /* -------------------------------------------------------------------------- */
   /*                              ADDRESS HANDLING                              */
   /* -------------------------------------------------------------------------- */
 
   const updateActiveTab = useCallback((patch: Partial<Tab>) => {
-    const newUrl = patch.url
+    const newUrl = patch.url;
     if (newUrl && !isValidUrl(newUrl) && newUrl !== kNEW_TAB_URL) {
-      patch.url = kNEW_TAB_URL
+      patch.url = kNEW_TAB_URL;
     }
-    tabStore.updateTab(tabStore.activeTabId, patch)
-  }, [])
+    tabStore.updateTab(tabStore.activeTabId, patch);
+  }, []);
 
   const onAddressSubmit = useCallback(() => {
-    let entry = addressText.trim()
+    let entry = addressText.trim();
     const isProbablyUrl =
-      /^([a-z]+:\/\/|www\.|([A-Za-z0-9\-]+\.)+[A-Za-z]{2,})(\/|$)/i.test(entry)
+      /^([a-z]+:\/\/|www\.|([A-Za-z0-9\-]+\.)+[A-Za-z]{2,})(\/|$)/i.test(entry);
 
-    if (entry === '') entry = kNEW_TAB_URL
-    else if (!isProbablyUrl) entry = kGOOGLE_PREFIX + encodeURIComponent(entry)
-    else if (!/^[a-z]+:\/\//i.test(entry)) entry = 'https://' + entry
+    if (entry === '') entry = kNEW_TAB_URL;
+    else if (!isProbablyUrl) entry = kGOOGLE_PREFIX + encodeURIComponent(entry);
+    else if (!/^[a-z]+:\/\//i.test(entry)) entry = 'https://' + entry;
 
     if (!isValidUrl(entry)) {
-      entry = kNEW_TAB_URL
+      entry = kNEW_TAB_URL;
     }
 
-    updateActiveTab({ url: entry })
-    addressEditing.current = false
-  }, [addressText, updateActiveTab])
+    updateActiveTab({ url: entry });
+    addressEditing.current = false;
+  }, [addressText, updateActiveTab]);
 
   /* -------------------------------------------------------------------------- */
   /*                               TAB NAVIGATION                               */
   /* -------------------------------------------------------------------------- */
- const navBack = useCallback(() => {
-  if (activeTab.canGoBack) {
-    tabStore.goBack(activeTab.id)
-  }
-}, [activeTab.canGoBack, activeTab.id])
+  const navBack = useCallback(() => {
+    if (activeTab.canGoBack) {
+      tabStore.goBack(activeTab.id);
+    }
+  }, [activeTab.canGoBack, activeTab.id]);
 
-const navFwd = useCallback(() => {
-  if (activeTab.canGoForward) {
-    tabStore.goForward(activeTab.id)
-  }
-}, [activeTab.canGoForward, activeTab.id])
+  const navFwd = useCallback(() => {
+    if (activeTab.canGoForward) {
+      tabStore.goForward(activeTab.id);
+    }
+  }, [activeTab.canGoForward, activeTab.id]);
 
-  const navReloadOrStop = useCallback(() =>
-    activeTab.isLoading
-      ? activeTab.webviewRef.current?.stopLoading()
-      : activeTab.webviewRef.current?.reload(), [activeTab.isLoading, activeTab.webviewRef])
+  const navReloadOrStop = useCallback(
+    () =>
+      activeTab.isLoading
+        ? activeTab.webviewRef.current?.stopLoading()
+        : activeTab.webviewRef.current?.reload(),
+    [activeTab.isLoading, activeTab.webviewRef]
+  );
 
   function closeTab(id: number) {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    tabStore.closeTab(id)
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    tabStore.closeTab(id);
   }
 
   useEffect(() => {
     if (tabStore.tabs.length === 0) {
-      tabStore.newTab()
+      tabStore.newTab();
     }
-  }, [])
+  }, []);
   useEffect(() => {
     if (activeTab && !addressEditing.current) {
-      setAddressText(activeTab.url)
+      setAddressText(activeTab.url);
     }
-  }, [activeTab.id, activeTab.url])
-
+  }, [activeTab.id, activeTab.url]);
 
   const dismissKeyboard = useCallback(() => {
     addressInputRef.current?.blur();
@@ -455,17 +503,19 @@ const navFwd = useCallback(() => {
   const responderProps =
     addressFocused && keyboardVisible
       ? {
-        onStartShouldSetResponder: () => true,
-        onResponderRelease: dismissKeyboard,
-      }
+          onStartShouldSetResponder: () => true,
+          onResponderRelease: dismissKeyboard
+        }
       : {};
 
   /* -------------------------------------------------------------------------- */
   /*                           NOTIFICATION HANDLERS                            */
   /* -------------------------------------------------------------------------- */
 
-  const handleNotificationPermissionRequest = async (origin: string): Promise<'granted' | 'denied' | 'default'> => {
-    return new Promise((resolve) => {
+  const handleNotificationPermissionRequest = async (
+    origin: string
+  ): Promise<'granted' | 'denied' | 'default'> => {
+    return new Promise(resolve => {
       setNotificationRequestOrigin(origin);
       setNotificationRequestResolver(() => (granted: boolean) => {
         resolve(granted ? 'granted' : 'denied');
@@ -647,7 +697,10 @@ const navFwd = useCallback(() => {
   true;
 `;
 
-  // === 2. RN ⇄ WebView message bridge ========================================
+  // === 2. RN ⇄ WebView message bridge ========================================
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedData, setScannedData] = useState<string | null>(null);
+  const scannerRef = useRef<ScannerHandle>(null);
 
   const handleMessage = useCallback(
     async (event: WebViewMessageEvent) => {
@@ -696,9 +749,20 @@ const navFwd = useCallback(() => {
         return;
       }
 
+      if (msg.type === 'SCAN_REQUEST') {
+        console.log(
+          '📡 Received scan request from WebView with reason:',
+          msg.reason
+        );
+        setShowScanner(true);
+        return;
+      }
+
       // Handle notification permission request
       if (msg.type === 'REQUEST_NOTIFICATION_PERMISSION') {
-        const permission = await handleNotificationPermissionRequest(activeTab.url);
+        const permission = await handleNotificationPermissionRequest(
+          activeTab.url
+        );
 
         activeTab.webviewRef.current?.injectJavaScript(`
             window.Notification.permission = '${permission}';
@@ -715,7 +779,10 @@ const navFwd = useCallback(() => {
       // Handle push subscription for remote notifications
       if (msg.type === 'PUSH_SUBSCRIBE') {
         try {
-          const subscription = await createPushSubscription(activeTab.url, msg.options?.applicationServerKey);
+          const subscription = await createPushSubscription(
+            activeTab.url,
+            msg.options?.applicationServerKey
+          );
 
           activeTab.webviewRef.current?.injectJavaScript(`
               window.dispatchEvent(new MessageEvent('message', {
@@ -773,9 +840,9 @@ const navFwd = useCallback(() => {
                   tag: msg.tag,
                   ...msg.data
                 },
-                sound: true,
+                sound: true
               },
-              trigger: null,
+              trigger: null
             });
           }
         } catch (error) {
@@ -784,7 +851,7 @@ const navFwd = useCallback(() => {
         return;
       }
 
-     // Handleing of wallet before api call.
+      // Handleing of wallet before api call.
       if (msg.call && !wallet) {
         // console.log('Wallet not ready, ignoring call:', msg.call);
         return;
@@ -824,7 +891,10 @@ const navFwd = useCallback(() => {
           case 'discoverByAttributes':
           case 'getNetwork':
           case 'getVersion':
-            response = await (wallet as any)[msg.call](typeof msg.args !== 'undefined' ? msg.args : {}, origin);
+            response = await (wallet as any)[msg.call](
+              typeof msg.args !== 'undefined' ? msg.args : {},
+              origin
+            );
             break;
           default:
             throw new Error('Unsupported method.');
@@ -834,61 +904,88 @@ const navFwd = useCallback(() => {
         console.error('Error processing wallet API call:', msg.call, error);
       }
     },
-    [activeTab.url, activeTab.webviewRef, wallet, createPushSubscription, getSubscription, getPermission, handleNotificationPermissionRequest]
+    [
+      activeTab.url,
+      activeTab.webviewRef,
+      wallet,
+      createPushSubscription,
+      getSubscription,
+      getPermission,
+      handleNotificationPermissionRequest
+    ]
   );
+
+  useEffect(() => {
+    if (scannedData && activeTab?.webviewRef?.current) {
+      activeTab.webviewRef.current.injectJavaScript(`
+        window.dispatchEvent(new MessageEvent('message', {
+          data: JSON.stringify({
+            type: 'SCAN_RESULT',
+            result: ${JSON.stringify(scannedData)}
+          })
+        }));
+        true;
+      `);
+      setScannedData(null); // Clear after sending
+      setShowScanner(false); // Ensure scanner is unmounted
+    }
+  }, [scannedData, activeTab]);
 
   /* -------------------------------------------------------------------------- */
   /*                      NAV STATE CHANGE → HISTORY TRACKING                   */
-  /* -------------------------------------------------------------------------- */  
+  /* -------------------------------------------------------------------------- */
   const handleNavStateChange = (navState: WebViewNavigation) => {
-  // Ignore favicon requests for about:blank
-  if (navState.url?.includes('favicon.ico') && activeTab.url === kNEW_TAB_URL) {
-    return;
-  }
-  
-  // Make sure we're updating the correct tab's navigation state
-  tabStore.handleNavigationStateChange(activeTab.id, navState)
-  
-  if (!addressEditing.current) setAddressText(navState.url)
+    // Ignore favicon requests for about:blank
+    if (
+      navState.url?.includes('favicon.ico') &&
+      activeTab.url === kNEW_TAB_URL
+    ) {
+      return;
+    }
 
-  if (!navState.loading && navState.url !== kNEW_TAB_URL) {
-    pushHistory({
-      title: navState.title || navState.url,
-      url: navState.url,
-      timestamp: Date.now()
-    }).catch(() => { })
-  }
-}
+    // Make sure we're updating the correct tab's navigation state
+    tabStore.handleNavigationStateChange(activeTab.id, navState);
+
+    if (!addressEditing.current) setAddressText(navState.url);
+
+    if (!navState.loading && navState.url !== kNEW_TAB_URL) {
+      pushHistory({
+        title: navState.title || navState.url,
+        url: navState.url,
+        timestamp: Date.now()
+      }).catch(() => {});
+    }
+  };
 
   /* -------------------------------------------------------------------------- */
   /*                          SHARE / HOMESCREEN SHORTCUT                       */
   /* -------------------------------------------------------------------------- */
   const shareCurrent = useCallback(async () => {
     try {
-      await Share.share({ message: activeTab.url })
+      await Share.share({ message: activeTab.url });
     } catch (err) {
-      console.warn('Share cancelled/failed', err)
+      console.warn('Share cancelled/failed', err);
     }
-  }, [activeTab.url])
+  }, [activeTab.url]);
   const addToHomeScreen = useCallback(async () => {
     try {
       if (Platform.OS === 'android') {
       } else {
-        await Linking.openURL('prefs:root=Safari')
+        await Linking.openURL('prefs:root=Safari');
       }
     } catch (e) {
-      console.warn('Add to homescreen failed', e)
+      console.warn('Add to homescreen failed', e);
     }
-  }, [])
+  }, []);
 
   /* -------------------------------------------------------------------------- */
   /*                           STAR (BOOKMARK+HISTORY)                          */
   /* -------------------------------------------------------------------------- */
   // const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isDrawerAnimating, setIsDrawerAnimating] = useState(false);
-  const windowHeight = Dimensions.get('window').height
-  const drawerFullHeight = windowHeight * 0.75
-  const translateY = useRef(new Animated.Value(drawerFullHeight)).current
+  const windowHeight = Dimensions.get('window').height;
+  const drawerFullHeight = windowHeight * 0.75;
+  const translateY = useRef(new Animated.Value(drawerFullHeight)).current;
 
   const closeStarDrawer = useCallback(() => {
     const runCloseDrawer = () => {
@@ -914,25 +1011,25 @@ const navFwd = useCallback(() => {
       return;
     }
     runCloseDrawer();
-  }, [isDrawerAnimating, drawerFullHeight, translateY])
+  }, [isDrawerAnimating, drawerFullHeight, translateY]);
 
   const onPanGestureEvent = useRef(
     Animated.event([{ nativeEvent: { translationY: translateY } }], {
       useNativeDriver: true
     })
-  ).current
+  ).current;
 
   const onPanHandlerStateChange = useCallback(
     (event: any) => {
       if (event.nativeEvent.oldState === GestureState.ACTIVE) {
-        if (isDrawerAnimating) return
-        setIsDrawerAnimating(true)
+        if (isDrawerAnimating) return;
+        setIsDrawerAnimating(true);
 
-        const { translationY, velocityY } = event.nativeEvent
+        const { translationY, velocityY } = event.nativeEvent;
 
         const shouldClose =
-          translationY > drawerFullHeight / 3 || velocityY > 800
-        const targetValue = shouldClose ? drawerFullHeight : 0
+          translationY > drawerFullHeight / 3 || velocityY > 800;
+        const targetValue = shouldClose ? drawerFullHeight : 0;
 
         Animated.spring(translateY, {
           toValue: targetValue,
@@ -954,76 +1051,79 @@ const navFwd = useCallback(() => {
       }
     },
     [drawerFullHeight, translateY, isDrawerAnimating]
-  )
+  );
 
   useEffect(() => {
     if (showStarDrawer) {
-      setIsDrawerAnimating(true)
-      translateY.setValue(drawerFullHeight)
+      setIsDrawerAnimating(true);
+      translateY.setValue(drawerFullHeight);
       Animated.spring(translateY, {
         toValue: 0,
         useNativeDriver: true,
         tension: 100,
         friction: 8
       }).start(() => {
-        setIsDrawerAnimating(false)
-      })
+        setIsDrawerAnimating(false);
+      });
     }
-  }, [showStarDrawer])
+  }, [showStarDrawer]);
 
-  const toggleStarDrawer = useCallback((open: boolean) => {
-    setShowStarDrawer(open)
-    Animated.timing(starDrawerAnim, {
-      toValue: 1,
-      duration: 250,
-      useNativeDriver: true
-    }).start()
-  }, [starDrawerAnim])
+  const toggleStarDrawer = useCallback(
+    (open: boolean) => {
+      setShowStarDrawer(open);
+      Animated.timing(starDrawerAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true
+      }).start();
+    },
+    [starDrawerAnim]
+  );
 
   // State for clear confirm modal (move this above scene components)
 
-  const handleSetStartingUrl = useCallback((url: string) => {
-    updateActiveTab({ url })
-    toggleStarDrawer(false)
-  }, [updateActiveTab])
+  const handleSetStartingUrl = useCallback(
+    (url: string) => {
+      updateActiveTab({ url });
+      toggleStarDrawer(false);
+    },
+    [updateActiveTab]
+  );
 
   const BookmarksScene = useMemo(() => {
-  return () => (
-    <RecommendedApps
-      includeBookmarks={bookmarkStore.bookmarks.filter(bookmark => {
-        // Filter out invalid URLs to prevent favicon errors
-        return bookmark.url && 
-               bookmark.url !== kNEW_TAB_URL && 
-               isValidUrl(bookmark.url) &&
-               !bookmark.url.includes('about:blank')
-      })}
-      setStartingUrl={handleSetStartingUrl}
-    />
-  )
-}, [bookmarkStore.bookmarks, handleSetStartingUrl])
+    return () => (
+      <RecommendedApps
+        includeBookmarks={bookmarkStore.bookmarks.filter(bookmark => {
+          // Filter out invalid URLs to prevent favicon errors
+          return (
+            bookmark.url &&
+            bookmark.url !== kNEW_TAB_URL &&
+            isValidUrl(bookmark.url) &&
+            !bookmark.url.includes('about:blank')
+          );
+        })}
+        setStartingUrl={handleSetStartingUrl}
+      />
+    );
+  }, [bookmarkStore.bookmarks, handleSetStartingUrl]);
 
   const HistoryScene = React.useCallback(() => {
     return (
       <HistoryList
         history={history}
         onSelect={u => {
-          updateActiveTab({ url: u })
-          toggleStarDrawer(false)
+          updateActiveTab({ url: u });
+          toggleStarDrawer(false);
         }}
         onDelete={removeHistoryItem}
         onClear={() => showClearConfirm()}
       />
-    )
+    );
   }, [history, updateActiveTab, toggleStarDrawer, removeHistoryItem]);
 
-
-
   /* ---------------------------- clear history modal ------------------------- */
-   const showClearConfirm = useCallback(() => {
-  Alert.alert(
-    'Clear browsing history?',
-    'This action cannot be undone.',
-    [
+  const showClearConfirm = useCallback(() => {
+    Alert.alert('Clear browsing history?', 'This action cannot be undone.', [
       {
         text: 'Cancel',
         style: 'cancel'
@@ -1033,9 +1133,8 @@ const navFwd = useCallback(() => {
         style: 'destructive',
         onPress: () => clearHistory()
       }
-    ]
-  )
-}, [clearHistory])
+    ]);
+  }, [clearHistory]);
 
   /* -------------------------------------------------------------------------- */
   /*                         ADDRESS BAR AUTOCOMPLETE                           */
@@ -1046,120 +1145,142 @@ const navFwd = useCallback(() => {
       keys: ['title', 'url'],
       threshold: 0.4
     })
-  )
+  );
   useEffect(() => {
-    fuseRef.current.setCollection([...history, ...bookmarkStore.bookmarks])
-  }, [history, bookmarkStore.bookmarks])
+    fuseRef.current.setCollection([...history, ...bookmarkStore.bookmarks]);
+  }, [history, bookmarkStore.bookmarks]);
   const [addressSuggestions, setAddressSuggestions] = useState<
     (HistoryEntry | Bookmark)[]
-  >([])
-  
+  >([]);
+
   const onChangeAddressText = useCallback((txt: string) => {
-    setAddressText(txt)
+    setAddressText(txt);
     if (txt.trim().length === 0) {
-      setAddressSuggestions([])
-      return
+      setAddressSuggestions([]);
+      return;
     }
     const results = fuseRef.current
       .search(txt)
       .slice(0, 10) // Get more results initially
-      .map(r => r.item)
-    
+      .map(r => r.item);
+
     // Remove duplicates based on URL
-    const uniqueResults = results.filter((item, index, self) => 
-      index === self.findIndex(t => t.url === item.url)
-    ).slice(0, 5) // Then limit to 5 unique results
-    
-    setAddressSuggestions(uniqueResults)
-  }, [])
+    const uniqueResults = results
+      .filter(
+        (item, index, self) => index === self.findIndex(t => t.url === item.url)
+      )
+      .slice(0, 5); // Then limit to 5 unique results
+
+    setAddressSuggestions(uniqueResults);
+  }, []);
 
   /* -------------------------------------------------------------------------- */
   /*                              INFO DRAWER NAV                               */
   /* -------------------------------------------------------------------------- */
-  const toggleInfoDrawer = useCallback((
-    open: boolean,
-    route: typeof infoDrawerRoute = 'root'
-  ) => {
-    setInfoDrawerRoute(route)
-    setShowInfoDrawer(open)
-  }, [])
+  const toggleInfoDrawer = useCallback(
+    (open: boolean, route: typeof infoDrawerRoute = 'root') => {
+      setInfoDrawerRoute(route);
+      setShowInfoDrawer(open);
+    },
+    []
+  );
 
   useEffect(() => {
     Animated.timing(drawerAnim, {
       toValue: showInfoDrawer ? 1 : 0,
       duration: 260,
       useNativeDriver: true
-    }).start()
-  }, [showInfoDrawer, drawerAnim])
+    }).start();
+  }, [showInfoDrawer, drawerAnim]);
 
   const drawerHeight =
     infoDrawerRoute === 'root'
       ? Dimensions.get('window').height * 0.75
-      : Dimensions.get('window').height * 0.9
-
-
+      : Dimensions.get('window').height * 0.9;
 
   /* -------------------------------------------------------------------------- */
   /*                               DRAWER HANDLERS                              */
   /* -------------------------------------------------------------------------- */
 
-    const drawerHandlers = useMemo(() => ({
+  const drawerHandlers = useMemo(
+    () => ({
       identity: () => setInfoDrawerRoute('identity'),
-            security: () => setInfoDrawerRoute('security'),
+      security: () => setInfoDrawerRoute('security'),
       trust: () => setInfoDrawerRoute('trust'),
       settings: () => setInfoDrawerRoute('settings'),
       addBookmark: () => {
         // Only add bookmark if URL is valid and not new tab page
-        if (activeTab.url && 
-            activeTab.url !== kNEW_TAB_URL && 
-            isValidUrl(activeTab.url) && 
-            !activeTab.url.includes('about:blank')) {
-          addBookmark(
-            activeTab.title || 'Untitled',
-            activeTab.url
-          )
-          toggleInfoDrawer(false)
+        if (
+          activeTab.url &&
+          activeTab.url !== kNEW_TAB_URL &&
+          isValidUrl(activeTab.url) &&
+          !activeTab.url.includes('about:blank')
+        ) {
+          addBookmark(activeTab.title || 'Untitled', activeTab.url);
+          toggleInfoDrawer(false);
         }
       },
       addToHomeScreen: async () => {
-        await addToHomeScreen()
-        toggleInfoDrawer(false)
+        await addToHomeScreen();
+        toggleInfoDrawer(false);
       },
       backToHomepage: () => {
-        updateActiveTab({ url: kNEW_TAB_URL })
-        setAddressText(kNEW_TAB_URL)
-        toggleInfoDrawer(false)
+        updateActiveTab({ url: kNEW_TAB_URL });
+        setAddressText(kNEW_TAB_URL);
+        toggleInfoDrawer(false);
       }
-    }), [activeTab.url, activeTab.title, addBookmark, toggleInfoDrawer, updateActiveTab, setAddressText, addToHomeScreen])
+    }),
+    [
+      activeTab.url,
+      activeTab.title,
+      addBookmark,
+      toggleInfoDrawer,
+      updateActiveTab,
+      setAddressText,
+      addToHomeScreen
+    ]
+  );
 
   /* -------------------------------------------------------------------------- */
   /*                                  RENDER                                    */
   /* -------------------------------------------------------------------------- */
 
-  const showAddressBar = !keyboardVisible || addressFocused
-  const showBottomBar = !(keyboardVisible && addressFocused)
+  const showAddressBar = !keyboardVisible || addressFocused;
+  const showBottomBar = !(keyboardVisible && addressFocused);
 
-  const starDrawerAnimatedStyle = useMemo(() => ([
-    styles.starDrawer,
-    {
-      backgroundColor: colors.background,
-      height: drawerFullHeight,
-      top: windowHeight - drawerFullHeight,
-      transform: [{ translateY }]
-    }
-  ]), [styles.starDrawer, colors.background, drawerFullHeight, windowHeight, translateY]);
+  const starDrawerAnimatedStyle = useMemo(
+    () => [
+      styles.starDrawer,
+      {
+        backgroundColor: colors.background,
+        height: drawerFullHeight,
+        top: windowHeight - drawerFullHeight,
+        transform: [{ translateY }]
+      }
+    ],
+    [
+      styles.starDrawer,
+      colors.background,
+      drawerFullHeight,
+      windowHeight,
+      translateY
+    ]
+  );
 
   const addressDisplay = addressFocused
     ? addressText
-    : domainForUrl(addressText)
+    : domainForUrl(addressText);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={addressFocused
-          ? (Platform.OS === 'ios' ? 'padding' : 'height')
-          : undefined
+        behavior={
+          addressFocused
+            ? Platform.OS === 'ios'
+              ? 'padding'
+              : 'height'
+            : undefined
         }
       >
         <SafeAreaView
@@ -1167,9 +1288,8 @@ const navFwd = useCallback(() => {
             styles.container,
             {
               backgroundColor: colors.inputBackground,
-              paddingBottom: addressFocused && keyboardVisible
-                ? 0
-                : insets.bottom
+              paddingBottom:
+                addressFocused && keyboardVisible ? 0 : insets.bottom
             }
           ]}
         >
@@ -1177,40 +1297,65 @@ const navFwd = useCallback(() => {
 
           {activeTab.url === kNEW_TAB_URL ? (
             <RecommendedApps
-            includeBookmarks={bookmarkStore.bookmarks.filter(bookmark => {
-              return bookmark.url && 
-                    bookmark.url !== kNEW_TAB_URL && 
-                    isValidUrl(bookmark.url) &&
-                    !bookmark.url.includes('about:blank')
-            })}
-            setStartingUrl={url => updateActiveTab({ url })}
-          />
-        ) : (
-            <View
-              style={{ flex: 1 }}
-              {...responderProps}
-            >
+              includeBookmarks={bookmarkStore.bookmarks.filter(bookmark => {
+                return (
+                  bookmark.url &&
+                  bookmark.url !== kNEW_TAB_URL &&
+                  isValidUrl(bookmark.url) &&
+                  !bookmark.url.includes('about:blank')
+                );
+              })}
+              setStartingUrl={url => updateActiveTab({ url })}
+            />
+          ) : (
+            <View style={{ flex: 1 }} {...responderProps}>
               <WebView
                 ref={activeTab.webviewRef}
                 source={{ uri: activeTab.url }}
-                originWhitelist={['https://*', 'http://*']}
+                originWhitelist={[
+                  'https://*',
+                  'http://*',
+                  'http://192.168.1.207:8000'
+                ]}
                 onMessage={handleMessage}
-                injectedJavaScript={injectedJavaScript}
+                injectedJavaScript={
+                  injectedJavaScript +
+                  `
+                  window.scanCodeWithCamera = async (reason) => {
+                    return new Promise((resolve) => {
+                      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCAN_REQUEST', reason }));
+                      const handler = (event) => {
+                        try {
+                          const data = JSON.parse(event.data);
+                          if (data.type === 'SCAN_RESULT') {
+                            window.removeEventListener('message', handler);
+                            resolve(data.result || '');
+                          }
+                        } catch (e) {}
+                      };
+                      window.addEventListener('message', handler);
+                    });
+                  };
+                  true;
+                `
+                }
                 onNavigationStateChange={handleNavStateChange}
                 onError={(syntheticEvent: any) => {
                   const { nativeEvent } = syntheticEvent;
-                  // Ignore favicon errors for about:blank
-                  if (nativeEvent.url?.includes('favicon.ico') && activeTab.url === kNEW_TAB_URL) {
+                  if (
+                    nativeEvent.url?.includes('favicon.ico') &&
+                    activeTab.url === kNEW_TAB_URL
+                  )
                     return;
-                  }
                   console.warn('WebView error:', nativeEvent);
                 }}
                 onHttpError={(syntheticEvent: any) => {
                   const { nativeEvent } = syntheticEvent;
-                  // Ignore favicon errors for about:blank
-                  if (nativeEvent.url?.includes('favicon.ico') && activeTab.url === kNEW_TAB_URL) {
+                  if (
+                    nativeEvent.url?.includes('favicon.ico') &&
+                    activeTab.url === kNEW_TAB_URL
+                  )
                     return;
-                  }
                   console.warn('WebView HTTP error:', nativeEvent);
                 }}
                 javaScriptEnabled
@@ -1219,10 +1364,19 @@ const navFwd = useCallback(() => {
                 containerStyle={{ backgroundColor: colors.background }}
                 style={{ flex: 1 }}
               />
+              {showScanner && (
+                <UniversalScanner
+                  ref={scannerRef}
+                  scannedData={scannedData}
+                  setScannedData={setScannedData}
+                  showScanner={showScanner}
+                  onDismiss={() => setShowScanner(false)}
+                />
+              )}
             </View>
           )}
           <View
-            onLayout={(e) => setAddressBarHeight(e.nativeEvent.layout.height)}
+            onLayout={e => setAddressBarHeight(e.nativeEvent.layout.height)}
             style={[
               styles.addressBar,
               {
@@ -1236,8 +1390,15 @@ const navFwd = useCallback(() => {
             ]}
           >
             {!addressFocused && (
-              <TouchableOpacity onPress={() => toggleInfoDrawer(true)} style={styles.addressBarIcon}>
-                <Ionicons name="person-circle-outline" size={22} color={colors.textSecondary} />
+              <TouchableOpacity
+                onPress={() => toggleInfoDrawer(true)}
+                style={styles.addressBarIcon}
+              >
+                <Ionicons
+                  name="person-circle-outline"
+                  size={22}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             )}
 
@@ -1255,31 +1416,30 @@ const navFwd = useCallback(() => {
             <TextInput
               ref={addressInputRef}
               editable
-              value={
-                addressDisplay === 'new-tab-page' ? '' : addressDisplay
-              }
+              value={addressDisplay === 'new-tab-page' ? '' : addressDisplay}
               onChangeText={onChangeAddressText}
               onFocus={() => {
-                addressEditing.current = true
-                setAddressFocused(true)
+                addressEditing.current = true;
+                setAddressFocused(true);
                 // Set the text to empty if it's the new tab URL
                 if (activeTab.url === kNEW_TAB_URL) {
-                  setAddressText('')
+                  setAddressText('');
                 }
                 setTimeout(() => {
-                  const textToSelect = activeTab.url === kNEW_TAB_URL ? '' : addressText
+                  const textToSelect =
+                    activeTab.url === kNEW_TAB_URL ? '' : addressText;
                   addressInputRef.current?.setNativeProps({
                     selection: { start: 0, end: textToSelect.length }
-                  })
-                }, 0)
+                  });
+                }, 0);
               }}
               onBlur={() => {
-                addressEditing.current = false
-                setAddressFocused(false)
-                setAddressSuggestions([])
+                addressEditing.current = false;
+                setAddressFocused(false);
+                setAddressSuggestions([]);
                 // Reset to the actual URL when losing focus
                 if (!addressEditing.current) {
-                  setAddressText(activeTab.url)
+                  setAddressText(activeTab.url);
                 }
               }}
               onSubmitEditing={onAddressSubmit}
@@ -1306,7 +1466,11 @@ const navFwd = useCallback(() => {
               style={styles.addressBarIcon}
             >
               <Ionicons
-                name={addressFocused || activeTab.isLoading ? 'close-circle' : 'refresh'}
+                name={
+                  addressFocused || activeTab.isLoading
+                    ? 'close-circle'
+                    : 'refresh'
+                }
                 size={22}
                 color={colors.textSecondary}
               />
@@ -1320,20 +1484,20 @@ const navFwd = useCallback(() => {
               ]}
             >
               {addressSuggestions.map(
-                (entry: HistoryEntry | Bookmark, i: number) => (                  
-                <TouchableOpacity
+                (entry: HistoryEntry | Bookmark, i: number) => (
+                  <TouchableOpacity
                     key={`suggestion-${i}-${entry.url}`}
                     onPress={() => {
                       // Dismiss keyboard and hide suggestions first
-                      addressInputRef.current?.blur()
-                      Keyboard.dismiss()
-                      setAddressFocused(false)
-                      setAddressSuggestions([])
-                      
+                      addressInputRef.current?.blur();
+                      Keyboard.dismiss();
+                      setAddressFocused(false);
+                      setAddressSuggestions([]);
+
                       // Then load the page
-                      setAddressText(entry.url)
-                      updateActiveTab({ url: entry.url })
-                      addressEditing.current = false
+                      setAddressText(entry.url);
+                      updateActiveTab({ url: entry.url });
+                      addressEditing.current = false;
                     }}
                     style={styles.suggestionItem}
                   >
@@ -1372,9 +1536,7 @@ const navFwd = useCallback(() => {
           {(showStarDrawer || isDrawerAnimating) && (
             <View style={StyleSheet.absoluteFill}>
               <Pressable style={styles.backdrop} onPress={closeStarDrawer} />
-              <Animated.View
-                style={starDrawerAnimatedStyle}
-              >
+              <Animated.View style={starDrawerAnimatedStyle}>
                 <PanGestureHandler
                   onGestureEvent={onPanGestureEvent}
                   onHandlerStateChange={onPanHandlerStateChange}
@@ -1387,16 +1549,17 @@ const navFwd = useCallback(() => {
                 </PanGestureHandler>
                 <View style={{ flex: 1 }}>
                   <StarDrawer
-                  BookmarksScene={BookmarksScene}
-                  HistoryScene={HistoryScene}
-                  colors={colors}
-                  styles={styles}
-                  index={starTabIndex}
-                  setIndex={setStarTabIndex}
-                />
+                    BookmarksScene={BookmarksScene}
+                    HistoryScene={HistoryScene}
+                    colors={colors}
+                    styles={styles}
+                    index={starTabIndex}
+                    setIndex={setStarTabIndex}
+                  />
                 </View>
               </Animated.View>
-            </View>          )}
+            </View>
+          )}
           {showBottomBar && (
             <BottomToolbar
               activeTab={activeTab}
@@ -1435,7 +1598,9 @@ const navFwd = useCallback(() => {
               ]}
             >
               {infoDrawerRoute === 'root' && (
-                <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+                <ScrollView
+                  contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+                >
                   <Pressable
                     style={styles.drawerHandle}
                     onPress={() => toggleInfoDrawer(false)}
@@ -1463,7 +1628,7 @@ const navFwd = useCallback(() => {
                     icon="settings-outline"
                     onPress={drawerHandlers.settings}
                   />
-                   <DrawerItem
+                  <DrawerItem
                     label="Notifications"
                     icon="notifications-outline"
                     onPress={() => setInfoDrawerRoute('notifications')}
@@ -1509,11 +1674,11 @@ const navFwd = useCallback(() => {
           />
         </SafeAreaView>
       </KeyboardAvoidingView>
-    </GestureHandlerRootView >
-  )
+    </GestureHandlerRootView>
+  );
 }
 
-export default observer(Browser)
+export default observer(Browser);
 
 /* -------------------------------------------------------------------------- */
 /*                               SUB-COMPONENTS                               */
@@ -1524,40 +1689,40 @@ const TabsViewBase = ({
   setAddressText,
   colors
 }: {
-  onDismiss: () => void
-  setAddressText: (text: string) => void
-  colors: any
+  onDismiss: () => void;
+  setAddressText: (text: string) => void;
+  colors: any;
 }) => {
   // Use the imported tabStore directly
-  const screen = Dimensions.get('window')
-  const ITEM_W = screen.width * 0.42
-  const ITEM_H = screen.height * 0.28
-  const insets = useSafeAreaInsets()
+  const screen = Dimensions.get('window');
+  const ITEM_W = screen.width * 0.42;
+  const ITEM_H = screen.height * 0.28;
+  const insets = useSafeAreaInsets();
 
-// Animation for new tab button
-  const newTabScale = useRef(new Animated.Value(1)).current
+  // Animation for new tab button
+  const newTabScale = useRef(new Animated.Value(1)).current;
 
-   const handleNewTabPress = useCallback(() => {
+  const handleNewTabPress = useCallback(() => {
     // Scale animation
     Animated.sequence([
       Animated.timing(newTabScale, {
         toValue: 0.85,
         duration: 100,
-        useNativeDriver: true,
+        useNativeDriver: true
       }),
       Animated.timing(newTabScale, {
         toValue: 1,
         duration: 150,
-        useNativeDriver: true,
-      }),
+        useNativeDriver: true
+      })
     ]).start(() => {
       // Create new tab and dismiss view after animation
-      tabStore.newTab()
+      tabStore.newTab();
       // Reset address text to new tab URL
-      setAddressText(kNEW_TAB_URL)
-      onDismiss()
-    })
-  }, [newTabScale, onDismiss, setAddressText])
+      setAddressText(kNEW_TAB_URL);
+      onDismiss();
+    });
+  }, [newTabScale, onDismiss, setAddressText]);
 
   const renderItem = ({ item }: { item: Tab }) => {
     const renderRightActions = (
@@ -1568,16 +1733,9 @@ const TabsViewBase = ({
         inputRange: [-101, 0],
         outputRange: [0, 1],
         extrapolate: 'clamp'
-      })
-      return (
-        <Animated.View
-          style={[
-            styles.swipeDelete,
-          ]}
-        >
-        </Animated.View>
-      ) 
-    }
+      });
+      return <Animated.View style={[styles.swipeDelete]}></Animated.View>;
+    };
     const renderLeftActions = (
       progress: Animated.AnimatedInterpolation<number>,
       dragX: Animated.AnimatedInterpolation<number>
@@ -1586,16 +1744,9 @@ const TabsViewBase = ({
         inputRange: [0, 101],
         outputRange: [1, 0],
         extrapolate: 'clamp'
-      })
-      return (
-        <Animated.View
-          style={[
-            styles.swipeDelete,
-          ]}
-        >
-        </Animated.View>
-      )
-    }
+      });
+      return <Animated.View style={[styles.swipeDelete]}></Animated.View>;
+    };
 
     return (
       <Swipeable
@@ -1607,78 +1758,83 @@ const TabsViewBase = ({
         rightThreshold={40}
         leftThreshold={40}
       >
-      <Pressable
-        style={[
-          styles.tabPreview,
-          {
-            width: ITEM_W,
-            height: ITEM_H,
-            borderColor:
-              item.id === tabStore.activeTabId ? '#007AFF' : colors.inputBorder,
-            borderWidth: item.id === tabStore.activeTabId ? 3 : StyleSheet.hairlineWidth,
-            backgroundColor: colors.background
-          }
-        ]}
-        onPress={() => {
-          tabStore.setActiveTab(item.id)
-          onDismiss()
-        }}
-      >
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            width: 24,
-            height: 24,
-            borderRadius: 12,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 10,
+        <Pressable
+          style={[
+            styles.tabPreview,
+            {
+              width: ITEM_W,
+              height: ITEM_H,
+              borderColor:
+                item.id === tabStore.activeTabId
+                  ? '#007AFF'
+                  : colors.inputBorder,
+              borderWidth:
+                item.id === tabStore.activeTabId ? 3 : StyleSheet.hairlineWidth,
+              backgroundColor: colors.background
+            }
+          ]}
+          onPress={() => {
+            tabStore.setActiveTab(item.id);
+            onDismiss();
           }}
-          onPress={(e) => {
-            e.stopPropagation() // Prevent tab selection when closing
-            tabStore.closeTab(item.id)
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✕</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 10
+            }}
+            onPress={e => {
+              e.stopPropagation(); // Prevent tab selection when closing
+              tabStore.closeTab(item.id);
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>
+              ✕
+            </Text>
+          </TouchableOpacity>
 
-        <View style={{ flex: 1, overflow: 'hidden' }}>
-          {item.url === kNEW_TAB_URL ? (
-            <View style={styles.tabPreviewEmpty}>
-              <Text style={{ fontSize: 16, color: colors.textSecondary }}>
-                New Tab
+          <View style={{ flex: 1, overflow: 'hidden' }}>
+            {item.url === kNEW_TAB_URL ? (
+              <View style={styles.tabPreviewEmpty}>
+                <Text style={{ fontSize: 16, color: colors.textSecondary }}>
+                  New Tab
+                </Text>
+              </View>
+            ) : (
+              <WebView
+                source={{ uri: item.url }}
+                style={{ flex: 1 }}
+                scrollEnabled={false}
+                pointerEvents="none"
+              />
+            )}
+            <View
+              style={[
+                styles.tabTitleBar,
+                { backgroundColor: colors.paperBackground }
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={{ flex: 1, color: colors.textPrimary, fontSize: 12 }}
+              >
+                {item.title}
               </Text>
             </View>
-          ) : (
-            <WebView
-              source={{ uri: item.url }}
-              style={{ flex: 1 }}
-              scrollEnabled={false}
-              pointerEvents="none"
-            />
-          )}
-          <View
-            style={[
-              styles.tabTitleBar,
-              { backgroundColor: colors.paperBackground }
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              style={{ flex: 1, color: colors.textPrimary, fontSize: 12 }}
-            >
-              {item.title}
-            </Text>
           </View>
-        </View>
-      </Pressable>
-    </Swipeable>
-  )
-}
+        </Pressable>
+      </Swipeable>
+    );
+  };
 
   return (
     <View style={styles.tabsViewContainer}>
@@ -1687,25 +1843,25 @@ const TabsViewBase = ({
       </TouchableWithoutFeedback>
 
       <FlatList
-      data={tabStore.tabs.slice()}
-      renderItem={renderItem}
-      keyExtractor={t => String(t.id)}
-      numColumns={2}
-      contentContainerStyle={{
-        padding: 12,
-        paddingTop: 32,  // Add this to move the tabs lower
-        paddingBottom: 100 + insets.bottom
-      }}
+        data={tabStore.tabs.slice()}
+        renderItem={renderItem}
+        keyExtractor={t => String(t.id)}
+        numColumns={2}
+        contentContainerStyle={{
+          padding: 12,
+          paddingTop: 32, // Add this to move the tabs lower
+          paddingBottom: 100 + insets.bottom
+        }}
       />
 
-         <View
+      <View
         style={[styles.tabsViewFooter, { paddingBottom: insets.bottom + 10 }]}
       >
         <Animated.View style={{ transform: [{ scale: newTabScale }] }}>
-          <TouchableOpacity 
-            style={styles.newTabBtn} 
-            onPress={handleNewTabPress}  
-            activeOpacity={0.7}          
+          <TouchableOpacity
+            style={styles.newTabBtn}
+            onPress={handleNewTabPress}
+            activeOpacity={0.7}
           >
             <Text style={styles.newTabIcon}>＋</Text>
           </TouchableOpacity>
@@ -1716,201 +1872,255 @@ const TabsViewBase = ({
         </TouchableOpacity>
       </View>
     </View>
-  )
-}
+  );
+};
 
-const TabsView = observer(TabsViewBase)
+const TabsView = observer(TabsViewBase);
 
-const DrawerItem = React.memo(({
-  label,
-  icon,
-  onPress
-}: {
-  label: string
-  icon: keyof typeof Ionicons.glyphMap
-  onPress: () => void
-}) => {
-  const { colors } = useTheme()
-  return (
-    <TouchableOpacity 
-      style={styles.drawerItem} 
-      onPress={onPress}
-      activeOpacity={0.6}
-      delayPressIn={0}
-    >
-      <Ionicons name={icon} size={22} color={colors.textSecondary} style={styles.drawerIcon} />
-      <Text style={[styles.drawerLabel, { color: colors.textPrimary }]}>
-        {label}
-      </Text>
-      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-    </TouchableOpacity>
-  )
-})
-
-const SubDrawerView = React.memo(({
-  route,
-  onBack,
-  onOpenNotificationSettings,
-}: {
-  route: 'identity' | 'settings' | 'security' | 'trust' | 'notifications';
-  onBack: () => void;
-  onOpenNotificationSettings?: () => void;
-}) => {
-  const { colors } = useTheme()
-
-  const screens = useMemo(() => ({
-    identity: <IdentityScreen />,
-    settings: <SettingsScreen />,
-    security: <SecurityScreen />,
-    trust: <TrustScreen />,
-  }), [])
-
-  return (
-    <View style={{ flex: 1 }}>
-      <View style={styles.subDrawerHeader}>
-        <TouchableOpacity 
-          onPress={onBack}
-          activeOpacity={0.6}
-          delayPressIn={0}
-        >
-          <Text style={[styles.backBtn, { color: colors.primary }]}>
-            ‹ Back
-          </Text>
-        </TouchableOpacity>
-        <Text style={[styles.subDrawerTitle, { color: colors.textPrimary }]}>
-          {route[0].toUpperCase() + route.slice(1)}
+const DrawerItem = React.memo(
+  ({
+    label,
+    icon,
+    onPress
+  }: {
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    onPress: () => void;
+  }) => {
+    const { colors } = useTheme();
+    return (
+      <TouchableOpacity
+        style={styles.drawerItem}
+        onPress={onPress}
+        activeOpacity={0.6}
+        delayPressIn={0}
+      >
+        <Ionicons
+          name={icon}
+          size={22}
+          color={colors.textSecondary}
+          style={styles.drawerIcon}
+        />
+        <Text style={[styles.drawerLabel, { color: colors.textPrimary }]}>
+          {label}
         </Text>
-        <View style={{ width: 60 }} />
-      </View>
-      <View style={styles.subDrawerContent}>
-        {route === 'notifications' ? (
-          <View>
-            <Text style={{ color: colors.textSecondary, fontSize: 16, marginBottom: 20 }}>
-              Manage notifications from websites and apps.
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.textSecondary}
+        />
+      </TouchableOpacity>
+    );
+  }
+);
+
+const SubDrawerView = React.memo(
+  ({
+    route,
+    onBack,
+    onOpenNotificationSettings
+  }: {
+    route: 'identity' | 'settings' | 'security' | 'trust' | 'notifications';
+    onBack: () => void;
+    onOpenNotificationSettings?: () => void;
+  }) => {
+    const { colors } = useTheme();
+
+    const screens = useMemo(
+      () => ({
+        identity: <IdentityScreen />,
+        settings: <SettingsScreen />,
+        security: <SecurityScreen />,
+        trust: <TrustScreen />
+      }),
+      []
+    );
+
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={styles.subDrawerHeader}>
+          <TouchableOpacity
+            onPress={onBack}
+            activeOpacity={0.6}
+            delayPressIn={0}
+          >
+            <Text style={[styles.backBtn, { color: colors.primary }]}>
+              ‹ Back
             </Text>
-            <TouchableOpacity
-              style={[
-                styles.drawerItem, 
-                { backgroundColor: colors.inputBackground, borderRadius: 8 }
-              ]}
-              onPress={onOpenNotificationSettings}
-            >
-              <Ionicons name="notifications-outline" size={22} color={colors.textSecondary} style={styles.drawerIcon} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.drawerLabel, { color: colors.textPrimary }]}>
-                  Notification Settings
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                  Manage website permissions
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          screens[route]
-        )}
+          </TouchableOpacity>
+          <Text style={[styles.subDrawerTitle, { color: colors.textPrimary }]}>
+            {route[0].toUpperCase() + route.slice(1)}
+          </Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <View style={styles.subDrawerContent}>
+          {route === 'notifications' ? (
+            <View>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: 16,
+                  marginBottom: 20
+                }}
+              >
+                Manage notifications from websites and apps.
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  { backgroundColor: colors.inputBackground, borderRadius: 8 }
+                ]}
+                onPress={onOpenNotificationSettings}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={22}
+                  color={colors.textSecondary}
+                  style={styles.drawerIcon}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[styles.drawerLabel, { color: colors.textPrimary }]}
+                  >
+                    Notification Settings
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                    Manage website permissions
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            screens[route]
+          )}
+        </View>
       </View>
-    </View>  )
-})
+    );
+  }
+);
 
 /* -------------------------------------------------------------------------- */
 /*                              BOTTOM TOOLBAR                               */
 /* -------------------------------------------------------------------------- */
 
-const BottomToolbar = React.memo(({
-  activeTab,
-  colors,
-  styles,
-  navBack,
-  navFwd,
-  shareCurrent,
-  toggleStarDrawer,
-  setShowTabsView
-}: {
-  activeTab: Tab
-  colors: any
-  styles: any
-  navBack: () => void
-  navFwd: () => void
-  shareCurrent: () => void
-  toggleStarDrawer: (open: boolean) => void
-  setShowTabsView: (show: boolean) => void
-}) => {
-  const handleStarPress = useCallback(() => toggleStarDrawer(true), [toggleStarDrawer])
-  const handleTabsPress = useCallback(() => setShowTabsView(true), [setShowTabsView])
+const BottomToolbar = React.memo(
+  ({
+    activeTab,
+    colors,
+    styles,
+    navBack,
+    navFwd,
+    shareCurrent,
+    toggleStarDrawer,
+    setShowTabsView
+  }: {
+    activeTab: Tab;
+    colors: any;
+    styles: any;
+    navBack: () => void;
+    navFwd: () => void;
+    shareCurrent: () => void;
+    toggleStarDrawer: (open: boolean) => void;
+    setShowTabsView: (show: boolean) => void;
+  }) => {
+    const handleStarPress = useCallback(
+      () => toggleStarDrawer(true),
+      [toggleStarDrawer]
+    );
+    const handleTabsPress = useCallback(
+      () => setShowTabsView(true),
+      [setShowTabsView]
+    );
 
-  return (
-    <View
-      style={[
-        styles.bottomBar,
-        {
-          backgroundColor: colors.inputBackground,
-          paddingBottom: 0
-        }
-      ]}
-    >      
-    <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={navBack}
-        disabled={!activeTab.canGoBack || activeTab.url === kNEW_TAB_URL}
-        activeOpacity={0.6}
-        delayPressIn={0}
+    return (
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: colors.inputBackground,
+            paddingBottom: 0
+          }
+        ]}
       >
-        <Ionicons
-          name="arrow-back"
-          size={24}
-          color={activeTab.canGoBack && activeTab.url !== kNEW_TAB_URL ? colors.textPrimary : '#cccccc'}
-        />
-      </TouchableOpacity>      
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={navFwd}
-        disabled={!activeTab.canGoForward || activeTab.url === kNEW_TAB_URL}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons
-          name="arrow-forward"
-          size={24}
-          color={activeTab.canGoForward && activeTab.url !== kNEW_TAB_URL ? colors.textPrimary : '#cccccc'}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={navBack}
+          disabled={!activeTab.canGoBack || activeTab.url === kNEW_TAB_URL}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={
+              activeTab.canGoBack && activeTab.url !== kNEW_TAB_URL
+                ? colors.textPrimary
+                : '#cccccc'
+            }
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={navFwd}
+          disabled={!activeTab.canGoForward || activeTab.url === kNEW_TAB_URL}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons
+            name="arrow-forward"
+            size={24}
+            color={
+              activeTab.canGoForward && activeTab.url !== kNEW_TAB_URL
+                ? colors.textPrimary
+                : '#cccccc'
+            }
+          />
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={shareCurrent}
-        disabled={activeTab.url === kNEW_TAB_URL}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons
-          name="share-outline"
-          size={24}
-          color={activeTab.url === kNEW_TAB_URL ? colors.textSecondary : colors.textPrimary}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={shareCurrent}
+          disabled={activeTab.url === kNEW_TAB_URL}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons
+            name="share-outline"
+            size={24}
+            color={
+              activeTab.url === kNEW_TAB_URL
+                ? colors.textSecondary
+                : colors.textPrimary
+            }
+          />
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={handleStarPress}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons name="star-outline" size={24} color={colors.textPrimary} />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={handleStarPress}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons name="star-outline" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={handleTabsPress}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons name="copy-outline" size={24} color={colors.textPrimary} />
-      </TouchableOpacity>
-    </View>
-  )
-})
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={handleTabsPress}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons name="copy-outline" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    );
+  }
+);
 
 /* -------------------------------------------------------------------------- */
 /*                                    CSS                                     */
@@ -1981,7 +2191,7 @@ const styles = StyleSheet.create({
   drawerHandleArea: {
     height: 40,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
 
   /* tabs view */
@@ -2010,14 +2220,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)'
   },
   tabsViewFooter: {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  flexDirection: 'row',
-  alignItems: 'center',
-  paddingHorizontal: 20
-},
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20
+  },
   newTabBtn: {
     width: 56,
     height: 56,
@@ -2062,7 +2272,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24
   },
   drawerIcon: {
-    marginRight: 16,
+    marginRight: 16
   },
   drawerLabel: {
     flex: 1,
@@ -2072,7 +2282,7 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: '#ccc',
     marginVertical: 8,
-    marginHorizontal: 24,
+    marginHorizontal: 24
   },
 
   /* sub-drawer */
@@ -2122,4 +2332,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     zIndex: 20
   }
-})
+});
