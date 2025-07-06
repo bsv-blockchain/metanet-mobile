@@ -700,6 +700,7 @@ function Browser() {
   // === 2. RN ⇄ WebView message bridge ========================================
   const [showScanner, setShowScanner] = useState(false);
   const [scannedData, setScannedData] = useState<string | null>(null);
+  const [secondScanComparison, setSecondScanComparison] = useState(false); // Default to false
   const scannerRef = useRef<ScannerHandle>(null);
 
   const handleMessage = useCallback(
@@ -721,8 +722,9 @@ function Browser() {
       let msg;
       try {
         msg = JSON.parse(event.nativeEvent.data);
+        console.log('📡 WebView message received:', msg);
       } catch (error) {
-        console.error('Failed to parse WebView message:', error);
+        console.error('❌ Failed to parse WebView message:', error);
         return;
       }
 
@@ -752,14 +754,21 @@ function Browser() {
       if (msg.type === 'SCAN_REQUEST') {
         console.log(
           '📡 Received scan request from WebView with reason:',
-          msg.reason
+          msg.reason,
+          'secondScanComparison:',
+          msg.secondScanComparison
         );
         setShowScanner(true);
+        setSecondScanComparison(msg.secondScanComparison || false); // Set based on message, default to false
         return;
       }
 
       // Handle notification permission request
       if (msg.type === 'REQUEST_NOTIFICATION_PERMISSION') {
+        console.log(
+          '🔒 Handling notification permission request for:',
+          activeTab.url
+        );
         const permission = await handleNotificationPermissionRequest(
           activeTab.url
         );
@@ -778,6 +787,10 @@ function Browser() {
 
       // Handle push subscription for remote notifications
       if (msg.type === 'PUSH_SUBSCRIBE') {
+        console.log(
+          '📩 Handling push subscription request for:',
+          activeTab.url
+        );
         try {
           const subscription = await createPushSubscription(
             activeTab.url,
@@ -793,7 +806,7 @@ function Browser() {
               }));
             `);
         } catch (error) {
-          console.error('Error creating push subscription:', error);
+          console.error('❌ Error creating push subscription:', error);
           activeTab.webviewRef.current?.injectJavaScript(`
               window.dispatchEvent(new MessageEvent('message', {
                 data: JSON.stringify({
@@ -809,6 +822,10 @@ function Browser() {
 
       // Handle get existing push subscription
       if (msg.type === 'GET_PUSH_SUBSCRIPTION') {
+        console.log(
+          '🔍 Fetching existing push subscription for:',
+          activeTab.url
+        );
         const subscription = getSubscription(activeTab.url);
 
         activeTab.webviewRef.current?.injectJavaScript(`
@@ -824,6 +841,7 @@ function Browser() {
 
       // Handle immediate local notifications
       if (msg.type === 'SHOW_NOTIFICATION') {
+        console.log('🔔 Handling show notification request:', msg);
         try {
           const permission = getPermission(activeTab.url);
           if (permission === 'granted') {
@@ -846,14 +864,14 @@ function Browser() {
             });
           }
         } catch (error) {
-          console.error('Error showing notification:', error);
+          console.error('❌ Error showing notification:', error);
         }
         return;
       }
 
-      // Handleing of wallet before api call.
+      // Handling of wallet before API call
       if (msg.call && !wallet) {
-        // console.log('Wallet not ready, ignoring call:', msg.call);
+        console.log('💼 Wallet not ready, ignoring call:', msg.call);
         return;
       }
 
@@ -862,6 +880,7 @@ function Browser() {
       let response: any;
 
       try {
+        console.log('🔧 Processing wallet API call:', msg.call);
         switch (msg.call) {
           case 'getPublicKey':
           case 'revealCounterpartyKeyLinkage':
@@ -901,7 +920,7 @@ function Browser() {
         }
         sendResponseToWebView(msg.id, response);
       } catch (error) {
-        console.error('Error processing wallet API call:', msg.call, error);
+        console.error('❌ Error processing wallet API call:', msg.call, error);
       }
     },
     [
@@ -916,7 +935,9 @@ function Browser() {
   );
 
   useEffect(() => {
+    console.log('🔄 Checking scannedData for WebView update:', scannedData);
     if (scannedData && activeTab?.webviewRef?.current) {
+      console.log('📤 Sending SCAN_RESULT to WebView:', scannedData);
       activeTab.webviewRef.current.injectJavaScript(`
         window.dispatchEvent(new MessageEvent('message', {
           data: JSON.stringify({
@@ -928,8 +949,11 @@ function Browser() {
       `);
       setScannedData(null); // Clear after sending
       setShowScanner(false); // Ensure scanner is unmounted
+      console.log('✅ Scanner unmounted, WebView updated with:', scannedData);
+    } else if (!scannedData && activeTab?.webviewRef?.current) {
+      console.log('⚠️ No scanned data to send, WebView not updated');
     }
-  }, [scannedData, activeTab]);
+  }, [scannedData, activeTab, secondScanComparison]);
 
   /* -------------------------------------------------------------------------- */
   /*                      NAV STATE CHANGE → HISTORY TRACKING                   */
@@ -1321,9 +1345,9 @@ function Browser() {
                 injectedJavaScript={
                   injectedJavaScript +
                   `
-                  window.scanCodeWithCamera = async (reason) => {
+                  window.scanCodeWithCamera = async (reason, secondScanComparison = false) => {
                     return new Promise((resolve) => {
-                      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCAN_REQUEST', reason }));
+                      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCAN_REQUEST', reason, secondScanComparison }));
                       const handler = (event) => {
                         try {
                           const data = JSON.parse(event.data);
@@ -1371,6 +1395,7 @@ function Browser() {
                   setScannedData={setScannedData}
                   showScanner={showScanner}
                   onDismiss={() => setShowScanner(false)}
+                  secondScanComparison={secondScanComparison}
                 />
               )}
             </View>

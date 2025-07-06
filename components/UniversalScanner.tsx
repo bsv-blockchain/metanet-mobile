@@ -1,9 +1,3 @@
-import {
-  BarcodeScanningResult,
-  Camera,
-  CameraView,
-  PermissionStatus
-} from 'expo-camera';
 import React, {
   useEffect,
   useState,
@@ -18,7 +12,8 @@ import {
   View,
   TouchableOpacity,
   Platform,
-  Dimensions
+  Dimensions,
+  TouchableWithoutFeedback
 } from 'react-native';
 import {
   Camera as VisionCamera,
@@ -43,6 +38,9 @@ interface ScannerProps {
   onDismiss: () => void; // Callback to unmount scanner
 }
 
+// Type guard for Platform.OS including 'web'
+const isWebPlatform = (os: string): os is 'web' => os === 'web';
+
 const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
   (
     { scannedData, setScannedData, showScanner, onDismiss }: ScannerProps,
@@ -52,19 +50,54 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
     const [scanned, setScanned] = useState(false);
     const [torchOn, setTorchOn] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
-    const [firstUrl, setFirstUrl] = useState<string | null>(null);
-    const [showDismiss, setShowDismiss] = useState(false); // Show Dismiss button after 4s from launch
+    const [showDismiss, setShowDismiss] = useState(false); // Show Dismiss button after 30s
     const mountTimeRef = useRef<number | null>(null); // Track mount time
-    const dismissTimerRef = useRef<number | null>(null); // Updated to number for setTimeout return
+    const dismissTimerRef = useRef<number | null>(null); // For 30-second timeout
     const sound = useRef<Audio.Sound | null>(null); // Ref for audio
 
     const { hasPermission: visionPermission, requestPermission } =
       useCameraPermission();
     const device = useCameraDevice('back', {
-      physicalDevices: ['ultra-wide-angle-camera'] // Prefer faster camera if available
+      physicalDevices: ['ultra-wide-angle-camera'] // Prefer faster camera
     });
 
-    // Load and prepare the click sound with absolute project path
+    // Pre-scan permission check
+    useEffect(() => {
+      logWithTimestamp(
+        'components/UniversalScanner',
+        '🔍 Checking camera permission before scan'
+      );
+      const checkPermissions = async () => {
+        if (!isWebPlatform(Platform.OS)) {
+          const status = await requestPermission();
+          logWithTimestamp(
+            'components/UniversalScanner',
+            '🔑 Permission request result',
+            { status }
+          );
+          setHasPermission(status);
+          if (!status) {
+            Alert.alert(
+              'Camera Permission Required',
+              'Please grant camera permission to scan codes.',
+              [
+                { text: 'Cancel', onPress: () => setScannedData('') },
+                { text: 'OK', onPress: () => checkPermissions() }
+              ]
+            );
+          }
+        } else {
+          logWithTimestamp(
+            'components/UniversalScanner',
+            '🌐 Web not supported, permission check skipped'
+          );
+          setHasPermission(false); // Web not supported without expo-camera
+        }
+      };
+      if (showScanner && hasPermission === null) checkPermissions();
+    }, [requestPermission, setScannedData, showScanner, hasPermission]);
+
+    // Load and prepare the click sound
     useEffect(() => {
       async function loadSound() {
         try {
@@ -74,12 +107,12 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
           sound.current = newSound;
           logWithTimestamp(
             'components/UniversalScanner',
-            'Sound loaded successfully v1.0'
+            '🔊 Sound loaded successfully v1.0'
           );
         } catch (error) {
           logWithTimestamp(
             'components/UniversalScanner',
-            'Error loading sound v1.0',
+            '❌ Error loading sound v1.0',
             { error }
           );
         }
@@ -97,25 +130,33 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
       if (sound.current) {
         try {
           await sound.current.replayAsync();
+          logWithTimestamp(
+            'components/UniversalScanner',
+            '🎵 Click sound played v1.0'
+          );
         } catch (error) {
           logWithTimestamp(
             'components/UniversalScanner',
-            'Error playing sound v1.0',
+            '❌ Error playing sound v1.0',
             { error }
           );
         }
       } else {
         logWithTimestamp(
           'components/UniversalScanner',
-          'Sound not loaded v1.0'
+          '⚠️ Sound not loaded v1.0'
         );
       }
     };
 
-    logWithTimestamp('components/UniversalScanner', 'Component mounted v1.0', {
-      showScanner,
-      isMounted
-    });
+    logWithTimestamp(
+      'components/UniversalScanner',
+      '🚀 Component mounted v1.0',
+      {
+        showScanner,
+        isMounted
+      }
+    );
 
     const codeScanner = useCodeScanner({
       codeTypes: [
@@ -130,11 +171,11 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
         'pdf-417',
         'aztec',
         'data-matrix'
-      ], // Support all common barcode types inspired by Scandit
+      ], // Standardized hyphenated format
       onCodeScanned: (codes: Code[]) => {
         logWithTimestamp(
           'components/UniversalScanner',
-          'onCodeScanned triggered v1.0',
+          '📷 onCodeScanned triggered v1.0',
           { codesLength: codes.length, scanned }
         );
         if (codes.length > 0 && !scanned) {
@@ -143,19 +184,27 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
           if (barcodeText) {
             logWithTimestamp(
               'components/UniversalScanner',
-              'Scan detected v1.0',
+              '✅ Scan detected v1.0',
               { type: barcode.type, value: barcodeText }
             );
-            setScannedData(barcodeText); // Set data immediately on first scan
+            setScannedData(barcodeText);
             setScanned(true);
-            playClickSound(); // Play sound on scan
+            playClickSound();
+            logWithTimestamp(
+              'components/UniversalScanner',
+              '📤 Scan data set to:',
+              barcodeText
+            );
             setTimeout(() => {
               logWithTimestamp(
                 'components/UniversalScanner',
-                'Scan re-enabled after timeout v1.0'
+                '🔄 Scan re-enabled after timeout v1.0'
               );
               setScanned(false);
-            }, 300); // Re-enable for next scan
+              if (ref && 'current' in ref && ref.current) {
+                ref.current.dismiss();
+              }
+            }, 300);
           }
         }
       }
@@ -164,104 +213,48 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
     useEffect(() => {
       logWithTimestamp(
         'components/UniversalScanner',
-        'Permissions effect triggered v1.0',
+        '🔧 Mount effect triggered v1.0',
         { showScanner, isMounted }
       );
-      const checkPermissions = async () => {
-        if (Platform.OS !== 'web') {
-          const status = await requestPermission();
-          logWithTimestamp(
-            'components/UniversalScanner',
-            'Permission request result v1.0',
-            { status }
-          );
-          setHasPermission(status);
-          if (!status) {
-            Alert.alert(
-              'Camera Permission',
-              'Camera permission is required to scan barcodes.',
-              [{ text: 'OK', onPress: () => setScannedData('') }]
-            );
-          }
-        } else {
-          const { status } = await Camera.requestCameraPermissionsAsync();
-          logWithTimestamp(
-            'components/UniversalScanner',
-            'Web permission result v1.0',
-            { status }
-          );
-          setHasPermission(status === PermissionStatus.GRANTED);
-          if (status !== 'granted') {
-            Alert.alert(
-              'Camera Permission',
-              'Camera permission is required to scan QR codes.',
-              [{ text: 'OK', onPress: () => setScannedData('') }]
-            );
-          }
-        }
-      };
-      checkPermissions();
-    }, [requestPermission, setScannedData]);
-
-    useEffect(() => {
-      logWithTimestamp(
-        'components/UniversalScanner',
-        'Mount effect triggered v1.0',
-        { showScanner, isMounted }
-      );
-      logWithTimestamp(
-        'components/UniversalScanner',
-        'ShowScanner state v1.0',
-        { showScanner }
-      ); // Debug log
       if (showScanner && !isMounted) {
-        logWithTimestamp('components/UniversalScanner', 'Mounting camera v1.0');
+        logWithTimestamp(
+          'components/UniversalScanner',
+          '📥 Mounting camera v1.0'
+        );
         setIsMounted(true);
-        mountTimeRef.current = Date.now(); // Record mount time
-        // Clear any existing timer
+        mountTimeRef.current = Date.now();
         if (dismissTimerRef.current) {
           clearTimeout(dismissTimerRef.current);
         }
-        // Set dismiss button to appear after 4 seconds from launch
         dismissTimerRef.current = setTimeout(() => {
           logWithTimestamp(
             'components/UniversalScanner',
-            'Showing dismiss button after 4s from launch v1.0'
+            '⏰ Showing dismiss button after 30s v1.0'
           );
           setShowDismiss(true);
-        }, 4000);
+        }, 30000); // 30-second timeout
       } else if (!showScanner && isMounted) {
         logWithTimestamp(
           'components/UniversalScanner',
-          'Unmounting camera v1.0'
+          '📤 Unmounting camera v1.0'
         );
         setIsMounted(false);
-        mountTimeRef.current = null; // Reset on unmount
-        setShowDismiss(false); // Hide dismiss button on unmount
+        mountTimeRef.current = null;
+        setShowDismiss(false);
         if (dismissTimerRef.current) {
-          clearTimeout(dismissTimerRef.current); // Clear timer on unmount
+          clearTimeout(dismissTimerRef.current);
           dismissTimerRef.current = null;
         }
       }
     }, [showScanner, isMounted]);
 
     useEffect(() => {
-      return () => {
-        logWithTimestamp(
-          'components/UniversalScanner',
-          'Component unmounted v1.0'
-        );
-      };
-    }, []); // Logs on unmount
-
-    useEffect(() => {
-      logWithTimestamp('components/UniversalScanner', 'State updated v1.0', {
+      logWithTimestamp('components/UniversalScanner', '🔄 State updated v1.0', {
         torchOn,
         scanned,
-        firstUrl,
         showDismiss
       });
-    }, [torchOn, scanned, firstUrl, showDismiss]);
+    }, [torchOn, scanned, showDismiss]);
 
     // Expose dismiss method via ref
     useImperativeHandle(
@@ -270,15 +263,19 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
         dismiss: () => {
           logWithTimestamp(
             'components/UniversalScanner',
-            'Dismissing via ref v1.0'
+            '🚪 Dismissing scanner via ref v1.0'
           );
           try {
             setScannedData(''); // Return empty string on dismissal
-            onDismiss(); // Trigger parent unmount
+            onDismiss();
+            logWithTimestamp(
+              'components/UniversalScanner',
+              '✅ Dismissal completed with empty string'
+            );
           } catch (error) {
             logWithTimestamp(
               'components/UniversalScanner',
-              'Error during dismiss v1.0',
+              '❌ Error during dismiss v1.0',
               { error }
             );
           }
@@ -287,10 +284,10 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
       [onDismiss, setScannedData]
     );
 
-    if (Platform.OS !== 'web' && !device) {
+    if ((Platform.OS as string) !== 'web' && !device) {
       logWithTimestamp(
         'components/UniversalScanner',
-        'No camera device available v1.0'
+        '⚠️ No camera device available v1.0'
       );
       return (
         <View style={styles.container}>
@@ -301,10 +298,10 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
         </View>
       );
     }
-    if (Platform.OS !== 'web' && !visionPermission) {
+    if ((Platform.OS as string) !== 'web' && !visionPermission) {
       logWithTimestamp(
         'components/UniversalScanner',
-        'Permission not granted v1.0'
+        '🔐 Permission not granted v1.0'
       );
       return (
         <View style={styles.container}>
@@ -315,14 +312,14 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
         </View>
       );
     }
-    if (Platform.OS === 'web' && !hasPermission) {
+    if (isWebPlatform(Platform.OS)) {
       logWithTimestamp(
         'components/UniversalScanner',
-        'Web permission not granted v1.0'
+        '🌐 Web not supported without expo-camera'
       );
       return (
         <View style={styles.container}>
-          <Text>Requesting camera permission...</Text>
+          <Text>Web scanning not supported</Text>
           <TouchableOpacity onPress={() => setScannedData('')}>
             <Text>Close</Text>
           </TouchableOpacity>
@@ -339,102 +336,82 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
       );
 
     return (
-      <View style={styles.container}>
-        {Platform.OS === 'web' ? (
-          <CameraView
-            style={StyleSheet.absoluteFill}
-            onBarcodeScanned={({ data }: BarcodeScanningResult) => {
-              logWithTimestamp(
-                'components/UniversalScanner',
-                'Web barcode scanned v1.0',
-                { data, scanned }
-              );
-              if (!scanned && data) {
-                setScannedData(data);
-                setScanned(true);
-              }
-            }}
-            barcodeScannerSettings={{
-              barcodeTypes: [
-                'qr',
-                'upc_a',
-                'upc_e',
-                'ean8',
-                'ean13',
-                'code39',
-                'code93',
-                'code128',
-                'pdf417',
-                'aztec',
-                'datamatrix'
-              ] // Match native support
-            }}
-          />
-        ) : (
-          <View style={styles.cameraContainer}>
-            <VisionCamera
-              style={StyleSheet.absoluteFill}
-              device={device!}
-              isActive={isMounted || showScanner}
-              codeScanner={codeScanner}
-              torch={torchOn ? 'on' : 'off'}
-              fps={format?.maxFps || 30} // Use maxFps from selected format or fallback to 30
-              videoStabilizationMode="off" // Disable stabilization
-              format={format} // Use selected format
-              onError={error =>
-                logWithTimestamp(
-                  'components/UniversalScanner',
-                  'Camera error v1.0',
-                  { error }
-                )
-              }
-            />
-          </View>
-        )}
-        <View style={styles.overlay}>
-          <View style={styles.scanArea} />
-        </View>
-        {showDismiss && (
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => {
-              logWithTimestamp(
-                'components/UniversalScanner',
-                'Dismiss button pressed v1.0'
-              );
-              playClickSound(); // Play click sound on button press
-              setScannedData(''); // Return empty string on dismissal
-              if (ref && 'current' in ref && ref.current) {
-                logWithTimestamp(
-                  'components/UniversalScanner',
-                  'Attempting dismiss via ref v1.0'
-                );
-                ref.current.dismiss(); // Force unmount via ref
-              }
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.closeText}>Dismiss</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={styles.torchButton}
+      showScanner && (
+        <TouchableWithoutFeedback
           onPress={() => {
             logWithTimestamp(
               'components/UniversalScanner',
-              'Torch button pressed v1.0',
-              { torchOn }
+              '🚪 Dismissing scanner via tap v1.0'
             );
-            setTorchOn(!torchOn);
+            playClickSound();
+            if (ref && 'current' in ref && ref.current) {
+              ref.current.dismiss();
+            }
           }}
-          disabled={Platform.OS === 'web'}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.torchText}>
-            {torchOn ? 'Turn Torch Off' : 'Turn Torch On'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.container}>
+            <View style={styles.webViewOverlay} pointerEvents="box-none" />
+            <View style={styles.overlayFullScreen} />
+            <View style={styles.cameraContainer}>
+              <VisionCamera
+                style={StyleSheet.absoluteFill}
+                device={device!}
+                isActive={isMounted || showScanner}
+                codeScanner={codeScanner}
+                torch={torchOn ? 'on' : 'off'}
+                fps={format?.maxFps || 30}
+                videoStabilizationMode="off"
+                format={format}
+                onError={error =>
+                  logWithTimestamp(
+                    'components/UniversalScanner',
+                    '❌ Camera error v1.0',
+                    { error }
+                  )
+                }
+              />
+            </View>
+            <View style={styles.overlay}>
+              <View style={styles.scanArea} />
+            </View>
+            {showDismiss && (
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  logWithTimestamp(
+                    'components/UniversalScanner',
+                    '🚪 Dismiss button pressed v1.0'
+                  );
+                  playClickSound();
+                  if (ref && 'current' in ref && ref.current) {
+                    ref.current.dismiss();
+                  }
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.closeText}>Dismiss</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.torchButton}
+              onPress={() => {
+                logWithTimestamp(
+                  'components/UniversalScanner',
+                  '🔦 Torch button pressed v1.0',
+                  { torchOn }
+                );
+                setTorchOn(!torchOn);
+              }}
+              disabled={(Platform.OS as string) === 'web'}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.torchText}>
+                {torchOn ? 'Turn Torch Off' : 'Turn Torch On'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
+      )
     );
   }
 );
@@ -442,29 +419,43 @@ const UniversalScanner = React.forwardRef<ScannerHandle, ScannerProps>(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center'
   },
-  cameraContainer: {
-    flex: 1,
+  webViewOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Dimensions.get('window').height / 2,
+    backgroundColor: 'transparent'
+  },
+  overlayFullScreen: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 1
+    backgroundColor: 'transparent'
+  },
+  cameraContainer: {
+    height: Dimensions.get('window').height / 2,
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0
   },
   overlay: {
+    height: Dimensions.get('window').height / 2,
+    width: '100%',
     position: 'absolute',
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
     justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2
+    alignItems: 'center'
   },
   scanArea: {
     width: 250,
@@ -478,8 +469,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     backgroundColor: '#fff',
     padding: 10,
-    borderRadius: 5,
-    zIndex: 3
+    borderRadius: 5
   },
   closeText: {
     fontSize: 16,
@@ -487,11 +477,10 @@ const styles = StyleSheet.create({
   },
   torchButton: {
     position: 'absolute',
-    bottom: 20 + 50,
-    backgroundColor: '#fff',
+    bottom: 80,
+    backgroundColor: 'fff',
     padding: 10,
-    borderRadius: 5,
-    zIndex: 3
+    borderRadius: 5
   },
   torchText: {
     fontSize: 16,
