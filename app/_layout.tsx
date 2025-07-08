@@ -90,8 +90,8 @@ export default function RootLayout() {
                     presentation: 'modal'
                   }}
                 />
-                <Stack.Screen name="payment" />{' '}
-                {/* Ensure this route is defined */}
+                {/* To overcome warning need to add this route */}
+                <Stack.Screen name="payment" options={{ title: 'Payment' }} />
               </Stack>
             </ThemeProvider>
           </WalletContextProvider>

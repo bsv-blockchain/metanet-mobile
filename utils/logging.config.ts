@@ -4,7 +4,8 @@ const defaultLogging = false;
 // Specific file logging overrides
 const loggingConfig: { [file: string]: boolean } = {
   default: defaultLogging,
-  //'context/WalletContext': true
+  'app/index': true,
+  'app/browser': true,
   'components/UniversalScanner': true
 };
 

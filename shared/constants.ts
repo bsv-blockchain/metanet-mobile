@@ -12,5 +12,20 @@ export const defaultBookmarks: Bookmark[] = [
   { title: 'GitHub', url: 'https://github.com', added: 0 },
   { title: 'StackOverflow', url: 'https://stackoverflow.com', added: 0 },
   { title: 'Reddit', url: 'https://reddit.com', added: 0 },
-  { title: 'scanner', url: 'http://192.168.1.207:8000/scanner.html', added: 0 }
+  { title: 'scanner', url: 'http://192.168.1.207:8000/scanner.html', added: 0 },
+  {
+    title: 'scanner1',
+    url: 'http://192.168.1.207:8000/scanner1.html',
+    added: 0
+  },
+  {
+    title: 'scanner2',
+    url: 'http://192.168.1.207:8000/scanner2.html',
+    added: 0
+  },
+  {
+    title: 'scannerAll',
+    url: 'http://192.168.1.207:8000/scannerAll.html',
+    added: 0
+  }
 ];

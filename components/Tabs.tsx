@@ -1,21 +1,16 @@
-import React from 'react'
-import { ScrollView } from 'react-native'
-import BookmarkTabs from './BookmarkTabs'
-import bookmarkStore from './BookmarkStore'
+import bookmarkStore from '@/stores/BookmarkStore'; // Updated import path
+import { Bookmark } from '@/shared/types/browser'; // Import Bookmark type
+import { View } from 'react-native';
 
-const Tabs: React.FC = () => {
+const Tabs = () => {
   return (
-    <ScrollView>
-      {bookmarkStore.tabs.map((tab, index) => (
-        <BookmarkTabs
-          key={tab.id}
-          tab={tab}
-          index={index}
-          removeTab={bookmarkStore.removeTab}
-        />
+    <>
+      {bookmarkStore.bookmarks.map((bookmark: Bookmark, index: number) => (
+        // Render logic here - using bookmark.url as an example
+        <View key={index}>{bookmark.url}</View>
       ))}
-    </ScrollView>
-  )
-}
+    </>
+  );
+};
 
-export default Tabs
+export default Tabs;

@@ -1,4 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
+const F = 'app/browser';
 import React, {
   useCallback,
   useEffect,
@@ -76,10 +77,18 @@ import { getPendingUrl, clearPendingUrl } from '@/hooks/useDeepLinking';
 import { useWebAppManifest } from '@/hooks/useWebAppManifest';
 import * as Notifications from 'expo-notifications';
 import UniversalScanner, { ScannerHandle } from '@/components/UniversalScanner';
+import { logWithTimestamp } from '@/utils/logging';
 
 /* -------------------------------------------------------------------------- */
 /*                                   CONSTS                                   */
 /* -------------------------------------------------------------------------- */
+
+// Declare scanCodeWithCamera as an optional property on the Window type
+declare global {
+  interface Window {
+    scanCodeWithCamera?: (reason: string) => Promise<string>;
+  }
+}
 
 const kNEW_TAB_URL = 'about:blank';
 const kGOOGLE_PREFIX = 'https://www.google.com/search?q=';
@@ -539,6 +548,26 @@ function Browser() {
 
   // === 1. Injected JS ============================================
   const injectedJavaScript = `
+  // Listen for messages from React Native and reject the scan promise
+  const handleMessage = function(event) {
+    try {
+      let messageData = event.data;
+
+      if (typeof messageData === 'string') {
+        messageData = JSON.parse(messageData);
+      }
+      
+      console.log('[InjectedJS] Received:messageData=', messageData);
+      console.log('[InjectedJS] Received messageData.type=', messageData.type);
+    } catch(e) {
+      console.error('Error parsing message from React Native:', e);
+    }
+  };
+
+  // Add listener on both window and document to maximize compatibility
+  window.addEventListener('message', handleMessage);
+  document.addEventListener('message', handleMessage);
+
   // Push Notification API polyfill
   (function() {
     // Check if Notification API already exists
@@ -642,6 +671,77 @@ function Browser() {
       };
     }
 
+    // Fullscreen API polyfill
+    if (!document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen = function() {
+        return new Promise((resolve, reject) => {
+          window.ReactNativeWebView?.postMessage(JSON.stringify({
+            type: 'REQUEST_FULLSCREEN'
+          }));
+          
+          const handler = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.type === 'FULLSCREEN_RESPONSE') {
+                window.removeEventListener('message', handler);
+                if (data.success) {
+                  resolve();
+                } else {
+                  reject(new Error('Fullscreen request denied'));
+                }
+              }
+            } catch (e) {}
+          };
+          window.addEventListener('message', handler);
+        });
+      };
+    }
+
+    if (!document.exitFullscreen) {
+      document.exitFullscreen = function() {
+        return new Promise((resolve) => {
+          window.ReactNativeWebView?.postMessage(JSON.stringify({
+            type: 'EXIT_FULLSCREEN'
+          }));
+          
+          const handler = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              if (data.type === 'FULLSCREEN_RESPONSE') {
+                window.removeEventListener('message', handler);
+                resolve();
+              }
+            } catch (e) {}
+          };
+          window.addEventListener('message', handler);
+        });
+      };
+    }
+
+    // Define fullscreen properties
+    Object.defineProperty(document, 'fullscreenElement', {
+      get: function() {
+        return window.__fullscreenElement || null;
+      }
+    });
+
+    Object.defineProperty(document, 'fullscreen', {
+      get: function() {
+        return !!window.__fullscreenElement;
+      }
+    });
+
+    // Listen for fullscreen changes from native
+    window.addEventListener('message', function(event) {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'FULLSCREEN_CHANGE') {
+          window.__fullscreenElement = data.isFullscreen ? document.documentElement : null;
+          document.dispatchEvent(new Event('fullscreenchange'));
+        }
+      } catch (e) {}
+    });
+
     // Console logging
     const originalLog = console.log;
     const originalWarn = console.warn;
@@ -693,15 +793,146 @@ function Browser() {
         args: args
       }));
     };
+
+    // Intercept fetch requests to add Accept-Language header
+    const originalFetch = window.fetch;
+    window.fetch = function(input, init = {}) {
+      // Get current language header from React Native
+      const acceptLanguage = '${getAcceptLanguageHeader()}';
+      
+      // Merge headers
+      const headers = new Headers(init.headers);
+      if (!headers.has('Accept-Language')) {
+        headers.set('Accept-Language', acceptLanguage);
+      }
+      
+      // Update init with new headers
+      const newInit = {
+        ...init,
+        headers: headers
+      };
+      
+      return originalFetch.call(this, input, newInit);
+    };
+
+    // Also intercept XMLHttpRequest for older APIs
+    const originalXHROpen = XMLHttpRequest.prototype.open;
+    const originalXHRSend = XMLHttpRequest.prototype.send;
+    
+    XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+      this._method = method;
+      this._url = url;
+      return originalXHROpen.call(this, method, url, async, user, password);
+    };
+    
+    XMLHttpRequest.prototype.send = function(data) {
+      // Add Accept-Language header if not already set
+      if (!this.getRequestHeader('Accept-Language')) {
+        const acceptLanguage = '${getAcceptLanguageHeader()}';
+        this.setRequestHeader('Accept-Language', acceptLanguage);
+      }
+      return originalXHRSend.call(this, data);
+    };
   })();
   true;
-`;
+`, [getAcceptLanguageHeader]);
 
   // === 2. RN ⇄ WebView message bridge ========================================
-  const [showScanner, setShowScanner] = useState(false);
   const [scannedData, setScannedData] = useState<string | null>(null);
-  const [secondScanComparison, setSecondScanComparison] = useState(false); // Default to false
+  const [scannerFullscreen, setScannerFullscreen] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const scanResolver = useRef<((data: string) => void) | null>(null);
+  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scannerRef = useRef<ScannerHandle>(null);
+
+  // Inject scanCodeWithCamera on mount
+  useEffect(() => {
+    window.scanCodeWithCamera = async (reason: string): Promise<string> => {
+      return new Promise(resolve => {
+        logWithTimestamp(F, 'Scan initiated', { reason });
+        scanResolver.current = resolve;
+        setShowScanner(true);
+
+        // Setup timeout to auto-dismiss scanner after 30s
+        scanTimeoutRef.current = setTimeout(() => {
+          if (scanResolver.current) {
+            scanResolver.current('');
+            scanResolver.current = null;
+            setShowScanner(false);
+            logWithTimestamp(F, 'Scan timed out');
+          }
+        }, 30000);
+
+        // Cleanup timeout if promise is cancelled
+        return () => {
+          if (scanTimeoutRef.current) {
+            clearTimeout(scanTimeoutRef.current);
+            scanTimeoutRef.current = null;
+          }
+        };
+      });
+    };
+
+    // Cleanup on unmount
+    return () => {
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+        scanTimeoutRef.current = null;
+      }
+      scanResolver.current = null;
+      setShowScanner(false);
+    };
+  }, []);
+
+  const dismissScanner = useCallback(() => {
+    if (scanResolver.current) {
+      logWithTimestamp(F, 'Resolving scan promise with empty string');
+      scanResolver.current('');
+      scanResolver.current = null;
+    }
+
+    // Inject CANCEL_SCAN event into WebView to resolve window.scanCodeWithCamera
+    if (activeTab?.webviewRef?.current) {
+      logWithTimestamp(
+        F,
+        `Injecting CANCEL_SCAN to WebView at ${activeTab.url}`
+      );
+      activeTab.webviewRef.current.injectJavaScript(`
+        window.dispatchEvent(new MessageEvent('message', {
+          data: JSON.stringify({
+            type: 'CANCEL_SCAN',
+            result: 'dismiss'
+          })
+        }));
+        true;
+      `);
+    } else {
+      logWithTimestamp(F, 'WebView ref is missing — cannot send CANCEL_SCAN');
+    }
+
+    setShowScanner(false);
+
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
+
+    logWithTimestamp(F, 'Scanner dismissed programmatically');
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (scannedData && scanResolver.current) {
+      logWithTimestamp(F, 'Scan data received', { scannedData });
+      scanResolver.current(scannedData);
+      scanResolver.current = null;
+      setScannedData(null);
+      setShowScanner(false);
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+        scanTimeoutRef.current = null;
+      }
+    }
+  }, [scannedData]);
 
   const handleMessage = useCallback(
     async (event: WebViewMessageEvent) => {
@@ -722,7 +953,7 @@ function Browser() {
       let msg;
       try {
         msg = JSON.parse(event.nativeEvent.data);
-        console.log('📡 WebView message received:', msg);
+        //console.log('📡 WebView message received:', msg);
       } catch (error) {
         console.error('❌ Failed to parse WebView message:', error);
         return;
@@ -733,7 +964,12 @@ function Browser() {
         const logPrefix = '[WebView]';
         switch (msg.method) {
           case 'log':
-            console.log(logPrefix, ...msg.args);
+            logWithTimestamp(
+              F,
+              `${logPrefix} ${msg.args
+                .map((arg: any) => JSON.stringify(arg))
+                .join(' ')}`
+            );
             break;
           case 'warn':
             console.warn(logPrefix, ...msg.args);
@@ -752,14 +988,13 @@ function Browser() {
       }
 
       if (msg.type === 'SCAN_REQUEST') {
-        console.log(
-          '📡 Received scan request from WebView with reason:',
-          msg.reason,
-          'secondScanComparison:',
-          msg.secondScanComparison
-        );
+        logWithTimestamp(F, `msg=${JSON.stringify(msg)}`);
+        const fullscreen =
+          typeof msg.reason === 'string' &&
+          msg.reason.toLowerCase().includes('fullscreen');
+        logWithTimestamp(F, `fullscreen=${fullscreen}`);
+        setScannerFullscreen(fullscreen);
         setShowScanner(true);
-        setSecondScanComparison(msg.secondScanComparison || false); // Set based on message, default to false
         return;
       }
 
@@ -935,9 +1170,11 @@ function Browser() {
   );
 
   useEffect(() => {
-    console.log('🔄 Checking scannedData for WebView update:', scannedData);
+    logWithTimestamp(
+      F,
+      `Checking scannedData for WebView update: ${scannedData}`
+    );
     if (scannedData && activeTab?.webviewRef?.current) {
-      console.log('📤 Sending SCAN_RESULT to WebView:', scannedData);
       activeTab.webviewRef.current.injectJavaScript(`
         window.dispatchEvent(new MessageEvent('message', {
           data: JSON.stringify({
@@ -949,11 +1186,14 @@ function Browser() {
       `);
       setScannedData(null); // Clear after sending
       setShowScanner(false); // Ensure scanner is unmounted
-      console.log('✅ Scanner unmounted, WebView updated with:', scannedData);
-    } else if (!scannedData && activeTab?.webviewRef?.current) {
-      console.log('⚠️ No scanned data to send, WebView not updated');
+      logWithTimestamp(
+        F,
+        `Scanner unmounted, WebView updated with: ${scannedData}`
+      );
+    } else {
+      logWithTimestamp(F, `blank scannedData for WebView update`);
     }
-  }, [scannedData, activeTab, secondScanComparison]);
+  }, [scannedData, activeTab]);
 
   /* -------------------------------------------------------------------------- */
   /*                      NAV STATE CHANGE → HISTORY TRACKING                   */
@@ -1345,13 +1585,18 @@ function Browser() {
                 injectedJavaScript={
                   injectedJavaScript +
                   `
-                  window.scanCodeWithCamera = async (reason, secondScanComparison = false) => {
+                  window.scanCodeWithCamera = async (reason) => {
+                    console.log('window.scanCodeWithCamera = async (', reason, ')')
                     return new Promise((resolve) => {
-                      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCAN_REQUEST', reason, secondScanComparison }));
+                      console.log('return new Promise((resolve)')
+                      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCAN_REQUEST', reason }));
                       const handler = (event) => {
+                        console.log('const handler = (event)')
                         try {
                           const data = JSON.parse(event.data);
+                          console.log('const data = JSON.parse(event.data)')
                           if (data.type === 'SCAN_RESULT') {
+                            console.log('data.type === SCAN_RESULT')
                             window.removeEventListener('message', handler);
                             resolve(data.result || '');
                           }
@@ -1394,8 +1639,11 @@ function Browser() {
                   scannedData={scannedData}
                   setScannedData={setScannedData}
                   showScanner={showScanner}
-                  onDismiss={() => setShowScanner(false)}
-                  secondScanComparison={secondScanComparison}
+                  onDismiss={() => {
+                    logWithTimestamp(F, 'Starting dismissal process');
+                    dismissScanner();
+                  }}
+                  fullscreen={scannerFullscreen}
                 />
               )}
             </View>
