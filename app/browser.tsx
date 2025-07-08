@@ -78,6 +78,7 @@ import { useWebAppManifest } from '@/hooks/useWebAppManifest';
 import * as Notifications from 'expo-notifications';
 import UniversalScanner, { ScannerHandle } from '@/components/UniversalScanner';
 import { logWithTimestamp } from '@/utils/logging';
+import { useTranslation } from 'react-i18next';
 
 /* -------------------------------------------------------------------------- */
 /*                                   CONSTS                                   */
@@ -123,6 +124,7 @@ function StarDrawer({
   index: number;
   setIndex: (index: number) => void;
 }) {
+  const { t } = useTranslation();
   const routes = useMemo(
     () => [
       { key: 'bookmarks', title: 'Bookmarks' },
@@ -181,8 +183,31 @@ function StarDrawer({
 
 function Browser() {
   /* --------------------------- theme / basic hooks -------------------------- */
+  /* --------------------------- theme / basic hooks -------------------------- */
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t, i18n } = useTranslation();
+  //const { isWeb2Mode } = useBrowserMode()
+
+  /* ----------------------------- language headers ----------------------------- */
+  // Map i18n language codes to proper HTTP Accept-Language header values
+  const getAcceptLanguageHeader = useCallback(() => {
+    const languageMap: Record<string, string> = {
+      en: 'en-US,en;q=0.9',
+      zh: 'zh-CN,zh;q=0.9,en;q=0.8',
+      es: 'es-ES,es;q=0.9,en;q=0.8',
+      hi: 'hi-IN,hi;q=0.9,en;q=0.8',
+      fr: 'fr-FR,fr;q=0.9,en;q=0.8',
+      ar: 'ar-SA,ar;q=0.9,en;q=0.8',
+      pt: 'pt-BR,pt;q=0.9,en;q=0.8',
+      bn: 'bn-BD,bn;q=0.9,en;q=0.8',
+      ru: 'ru-RU,ru;q=0.9,en;q=0.8',
+      id: 'id-ID,id;q=0.9,en;q=0.8'
+    };
+
+    const currentLanguage = i18n.language || 'en';
+    return languageMap[currentLanguage] || 'en-US,en;q=0.9';
+  }, [i18n.language]);
 
   /* ----------------------------- wallet context ----------------------------- */
   const { managers } = useWallet();
@@ -547,8 +572,10 @@ function Browser() {
   /* -------------------------------------------------------------------------- */
 
   // === 1. Injected JS ============================================
-  const injectedJavaScript = `
-  // Listen for messages from React Native and reject the scan promise
+
+  const injectedJavaScript = useMemo(
+    () => `
+ // Listen for messages from React Native and reject the scan promise
   const handleMessage = function(event) {
     try {
       let messageData = event.data;
@@ -835,9 +862,11 @@ function Browser() {
     };
   })();
   true;
-`, [getAcceptLanguageHeader]);
+`,
+    [getAcceptLanguageHeader]
+  );
 
-  // === 2. RN ⇄ WebView message bridge ========================================
+  // === 2. RN ⇄ WebView message bridge ========================================
   const [scannedData, setScannedData] = useState<string | null>(null);
   const [scannerFullscreen, setScannerFullscreen] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
