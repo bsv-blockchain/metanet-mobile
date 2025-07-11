@@ -12,5 +12,11 @@ export const defaultBookmarks: Bookmark[] = [
   { title: 'GitHub', url: 'https://github.com', added: 0 },
   { title: 'StackOverflow', url: 'https://stackoverflow.com', added: 0 },
   { title: 'Reddit', url: 'https://reddit.com', added: 0 },
-  { title: 'Medium', url: 'https://medium.com', added: 0 }
+  { title: 'Medium', url: 'https://medium.com', added: 0 },
+  { title: 'LinkedIn', url: 'https://linkedin.com', added: 0 },
+  { title: 'FullscreenDemo', url: 'https://davidwalsh.name/demo/fullscreen.php', added: 0 },
+  { title: 'Tempo', url: 'https://tempomusic.net', added: 0 },
+  { title: 'uhrp-dog', url: 'uhrp://XUTr8jVoGJUaMYQa4KP6bZ4ejVimzpkfnt1ogDBqDShmdoM6xUcZ', added: 0 },
+  { title: 'uhrp-cat', url: 'uhrp://XUSuidbeknPv3KKFbBArzUDEfMSHCDXMqMjsAaPLkYLZS4Ebxjfm', added: 0 },
+  { title: 'uhrp-video', url: 'uhrp://XUTEGfCykZ4E8oJhT98keoPTg2Q28Nq4sJJXLf9CYA5CjV7ZsTCV', added: 0 },
 ]

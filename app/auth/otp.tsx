@@ -9,7 +9,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   Alert,
-  TextInput
+  TextInput,
+  Keyboard
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -65,6 +66,9 @@ export default function OtpScreen() {
         otp,
       });
       
+      // Dismiss keyboard before navigation to prevent jitter
+      Keyboard.dismiss();
+      
       // Navigate to password screen after OTP verification
       router.push({
         pathname: '/auth/password',
@@ -104,7 +108,7 @@ export default function OtpScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={'padding'}
         style={styles.keyboardAvoidingView}
       >
         <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>

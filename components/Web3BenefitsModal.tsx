@@ -26,34 +26,6 @@ const Web3BenefitsModal: React.FC<Web3BenefitsModalProps> = ({
   const { colors } = useTheme();
   const { t } = useTranslation();
 
-  const benefits = [
-    {
-      icon: 'key-outline' as const,
-      title: 'Never login again',
-      description: 'One identity for every Web3 app. No more passwords or sign-ups.',
-    },
-    {
-      icon: 'flash-outline' as const,
-      title: 'Instant everything',
-      description: 'Payments, access, verification - all happen in seconds.',
-    },
-    {
-      icon: 'shield-checkmark-outline' as const,
-      title: 'You own your data',
-      description: 'No companies tracking you or selling your information.',
-    },
-    {
-      icon: 'planet-outline' as const,
-      title: 'Works everywhere',
-      description: 'Access thousands of Web3 apps with the same identity.',
-    },
-    {
-      icon: 'trending-up-outline' as const,
-      title: 'Future-proof',
-      description: 'Be early to the next generation of the internet.',
-    },
-  ];
-
   return (
     <Modal
       visible={visible}
@@ -66,7 +38,7 @@ const Web3BenefitsModal: React.FC<Web3BenefitsModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
-              Are you sure?
+              {t('web3_benefits_title')}
             </Text>
             <TouchableOpacity onPress={onDismiss} style={styles.closeButton}>
               <Ionicons name="close" size={24} color={colors.textSecondary} />
@@ -76,23 +48,23 @@ const Web3BenefitsModal: React.FC<Web3BenefitsModalProps> = ({
           {/* Content - Simple approach */}
           <View style={{ padding: 20 }}>
             <Text style={[{ fontSize: 16, marginBottom: 16, color: colors.textPrimary }]}>
-              The benefits of web3 are as follows:
+              {t('web3_benefits_description')}
             </Text>
 
             <Text style={[{ fontSize: 14, lineHeight: 20, marginBottom: 8, color: colors.textPrimary }]}>
-              • Never login again - One identity for every Web3 app. No more passwords or sign-ups.
+              • {t('web3_benefit_never_login')} - {t('web3_benefit_never_login_desc')}
             </Text>
             <Text style={[{ fontSize: 14, lineHeight: 20, marginBottom: 8, color: colors.textPrimary }]}>
-              • Instant everything - Payments, access, verification - all happen in seconds.
+              • {t('web3_benefit_instant')} - {t('web3_benefit_instant_desc')}
             </Text>
             <Text style={[{ fontSize: 14, lineHeight: 20, marginBottom: 8, color: colors.textPrimary }]}>
-              • You own your data - No companies tracking you or selling your information.
+              • {t('web3_benefit_own_data')} - {t('web3_benefit_own_data_desc')}
             </Text>
             <Text style={[{ fontSize: 14, lineHeight: 20, marginBottom: 8, color: colors.textPrimary }]}>
-              • Works everywhere - Access thousands of Web3 apps with the same identity.
+              • {t('web3_benefit_works_everywhere')} - {t('web3_benefit_works_everywhere_desc')}
             </Text>
             <Text style={[{ fontSize: 14, lineHeight: 20, marginBottom: 20, color: colors.textPrimary }]}>
-              • Future-proof - Be early to the next generation of the internet.
+              • {t('web3_benefit_future_proof')} - {t('web3_benefit_future_proof_desc')}
             </Text>
           </View>
 
@@ -103,7 +75,7 @@ const Web3BenefitsModal: React.FC<Web3BenefitsModalProps> = ({
               onPress={onGoToLogin}
             >
               <Text style={[styles.primaryButtonText, { color: colors.buttonText }]}>
-                🚀 Get My Web3 Identity (30s)
+                {t('web3_benefits_get_identity')}
               </Text>
             </TouchableOpacity>
 
@@ -112,7 +84,7 @@ const Web3BenefitsModal: React.FC<Web3BenefitsModalProps> = ({
               onPress={onContinueWithoutLogin}
             >
               <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>
-                Maybe later
+                {t('web3_benefits_maybe_later')}
               </Text>
             </TouchableOpacity>
           </View>

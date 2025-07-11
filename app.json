@@ -3,7 +3,7 @@
     "name": "Metanet",
     "slug": "metanet-mobile",
     "version": "0.2.2",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "metanet",
     "userInterfaceStyle": "automatic",
@@ -104,6 +104,18 @@
             "BROWSABLE",
             "DEFAULT"
           ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "uhrp"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "queries": [
@@ -142,13 +154,15 @@
             "CFBundleURLSchemes": [
               "metanet",
               "http",
-              "https"
+              "https",
+              "uhrp"
             ]
           }
         ],
         "LSApplicationQueriesSchemes": [
           "https",
-          "http"
+          "http",
+          "uhrp"
         ]
       },
       "entitlements": {

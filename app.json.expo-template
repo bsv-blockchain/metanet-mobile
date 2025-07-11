@@ -89,6 +89,18 @@
             "BROWSABLE",
             "DEFAULT"
           ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "uhrp"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -106,13 +118,15 @@
             "CFBundleURLSchemes": [
               "metanet",
               "http",
-              "https"
+              "https",
+              "uhrp"
             ]
           }
         ],
         "LSApplicationQueriesSchemes": [
           "https",
-          "http"
+          "http",
+          "uhrp"
         ]
       },
       "entitlements": {

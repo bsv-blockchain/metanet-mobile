@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Fuse from 'fuse.js';
@@ -17,6 +18,7 @@ import { useTheme } from '@/context/theme/ThemeContext';
 import { useWallet } from '@/context/WalletContext';
 import { useBrowserMode } from '@/context/BrowserModeContext';
 import { useTranslation } from 'react-i18next';
+import { uhrpHandler } from '@/utils/uhrpProtocol';
 
 interface App {
   domain: string;
@@ -115,6 +117,91 @@ export const RecommendedApps = ({
   // Context menu state
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
+
+  /* -------------------------- navigation handler -------------------------- */
+  const handleAppNavigation = useCallback(async (url: string) => {
+    console.log('🔗 [RecommendedApps] Navigation requested:', url);
+    console.log('🔗 [RecommendedApps] isUHRPUrl check:', uhrpHandler.isUHRPUrl(url));
+    
+    // Check if this is a UHRP URL
+    if (uhrpHandler.isUHRPUrl(url)) {
+      console.log('🔗 [RecommendedApps] UHRP URL detected, resolving directly:', url);
+      try {
+        // Resolve UHRP URL directly and navigate to resolved content
+        console.log('🔗 [RecommendedApps] About to call uhrpHandler.resolveUHRPUrl...');
+        const resolvedContent = await uhrpHandler.resolveUHRPUrl(url);
+        console.log('🔗 [RecommendedApps] resolveUHRPUrl returned:', {
+          resolvedUrl: resolvedContent.resolvedUrl,
+          shouldUseDataUrl: resolvedContent.shouldUseDataUrl,
+          hasDataUrl: !!resolvedContent.dataUrl,
+          mimeType: resolvedContent.mimeType
+        });
+        
+        if (resolvedContent.shouldUseDataUrl && resolvedContent.dataUrl) {
+          // Use data URL to bypass octet-stream content-type
+          console.log('🔗 [RecommendedApps] Using data URL to bypass octet-stream');
+          setStartingUrl(resolvedContent.dataUrl);
+        } else if (resolvedContent.resolvedUrl) {
+          // Navigate to the resolved URL, but keep the original UHRP URL in the address bar
+          console.log('🔗 [RecommendedApps] Using HTTP URL:', resolvedContent.resolvedUrl);
+          setStartingUrl(resolvedContent.resolvedUrl);
+        }
+      } catch (error) {
+        console.error('🔗 [RecommendedApps] UHRP resolution failed:', error);
+        // Fallback: show error by navigating to a data URL with error content
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>UHRP Error</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                  text-align: center; 
+                  padding: 50px 20px; 
+                  background: #f5f5f5;
+                  color: #333;
+                }
+                .container { 
+                  max-width: 400px; 
+                  margin: 0 auto; 
+                  background: white; 
+                  padding: 30px; 
+                  border-radius: 10px; 
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                h2 { color: #e74c3c; margin-bottom: 20px; }
+                .url { background: #f8f9fa; padding: 10px; border-radius: 5px; word-break: break-all; margin: 20px 0; }
+                button { 
+                  background: #007AFF; 
+                  color: white; 
+                  border: none; 
+                  padding: 12px 24px; 
+                  border-radius: 6px; 
+                  font-size: 16px; 
+                  cursor: pointer;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h2>Failed to load UHRP content</h2>
+                <div class="url">${url}</div>
+                <p>Error: ${(error as any)?.message || 'Unknown error occurred while resolving UHRP URL'}</p>
+                <button onclick="window.location.href='about:blank'">Go to Homepage</button>
+              </div>
+            </body>
+          </html>
+        `;
+        setStartingUrl(`data:text/html,${encodeURIComponent(errorHtml)}`);
+      }
+    } else {
+      // Normal HTTP/HTTPS URL, use regular navigation
+      console.log('🔗 [RecommendedApps] Regular URL, using setStartingUrl:', url);
+      setStartingUrl(url);
+    }
+  }, [setStartingUrl]);
 
   /* -------------------------- helper functions -------------------------- */
   const isBookmark = useCallback((app: App) => {
@@ -215,7 +302,7 @@ export const RecommendedApps = ({
   const renderAppItem = ({ item }: { item: App }) => (
     <TouchableOpacity
       style={componentStyles.appItem}
-      onPress={() => setStartingUrl(item.domain)}
+      onPress={() => handleAppNavigation(item.domain)}
       onLongPress={() => handleLongPress(item)}
       delayLongPress={800}
     >

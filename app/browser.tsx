@@ -49,12 +49,14 @@ import { isValidUrl } from '@/utils/generalHelpers'
 import tabStore from '../stores/TabStore'
 import bookmarkStore from '@/stores/BookmarkStore'
 import SettingsScreen from './settings'
+import appConfig from '../app.json'
 import IdentityScreen from './identity'
 import { useTranslation } from 'react-i18next'
 import { useBrowserMode } from '@/context/BrowserModeContext'
 import { useLanguage } from '@/utils/translations'
 import SecurityScreen from './security'
 import TrustScreen from './trust'
+import { uhrpHandler } from '@/utils/uhrpProtocol'
 
 /* -------------------------------------------------------------------------- */
 /*                                   HELPERS                                   */
@@ -163,7 +165,14 @@ function StarDrawer({
 /*                                  BROWSER                                   */
 /* -------------------------------------------------------------------------- */
 
+let renderCounter = 0;
+
 function Browser() {
+  renderCounter++;
+  console.log('🏗️ [BROWSER_COMPONENT] Browser component rendered/re-rendered #' + renderCounter + ':', {
+    timestamp: new Date().toISOString()
+  });
+
   /* --------------------------- theme / basic hooks -------------------------- */
   const { colors, isDark } = useTheme()
   const insets = useSafeAreaInsets()
@@ -310,6 +319,8 @@ function Browser() {
 
   /* -------------------------- ui / animation state -------------------------- */
   const addressEditing = useRef(false)
+  const lastNavStateRef = useRef<WebViewNavigation | null>(null)
+  const lastNavStateTimestamp = useRef<number>(0)
   const [addressText, setAddressText] = useState(kNEW_TAB_URL)
   const [addressFocused, setAddressFocused] = useState(false);
   const [addressBarHeight, setAddressBarHeight] = useState(0);
@@ -333,6 +344,25 @@ function Browser() {
   const { manifest, fetchManifest, getStartUrl, shouldRedirectToStartUrl } = useWebAppManifest();
   const [showBalance, setShowBalance] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fullscreen management for iOS and Android
+  const enterFullscreen = useCallback(async () => {
+    try {
+      setIsFullscreen(true);
+      console.log('Entering fullscreen mode');
+    } catch (error) {
+      console.warn('Failed to enter fullscreen:', error);
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(async () => {
+    try {
+      setIsFullscreen(false);
+      console.log('Exiting fullscreen mode');
+    } catch (error) {
+      console.warn('Failed to exit fullscreen:', error);
+    }
+  }, []);
 
   // Safety check - if somehow activeTab is null, force create a new tab
   // This is done after all hooks to avoid violating Rules of Hooks
@@ -396,11 +426,105 @@ function Browser() {
     const checkPendingUrl = async () => {
       try {
         const pendingUrl = await getPendingUrl();
+        console.log('🔗 [Browser] Checking for pending URL:', pendingUrl);
         if (pendingUrl) {
-          console.log('Loading pending URL from deep link:', pendingUrl);
-          updateActiveTab({ url: pendingUrl });
-          setAddressText(pendingUrl);
+          console.log('🔗 [Browser] Loading pending URL from deep link:', pendingUrl);
+          
+          // Check if this is a UHRP URL that needs special handling
+          if (uhrpHandler.isUHRPUrl(pendingUrl)) {
+            console.log('🔗 [Browser] Pending URL is UHRP, resolving first:', pendingUrl);
+            try {
+              const resolvedContent = await uhrpHandler.resolveUHRPUrl(pendingUrl);
+              console.log('🔗 [Browser] UHRP resolved to:', resolvedContent.resolvedUrl);
+              
+              // Update tab with the original UHRP URL for display
+              updateActiveTab({ url: pendingUrl });
+              setAddressText(pendingUrl);
+              
+              // Navigate to the resolved HTTP URL in the WebView after a delay to ensure WebView is ready
+              setTimeout(() => {
+                const currentTab = tabStore.activeTab;
+                if (currentTab?.webviewRef?.current && resolvedContent.resolvedUrl) {
+                  currentTab.webviewRef.current.injectJavaScript(`
+                    window.location.href = '${resolvedContent.resolvedUrl}';
+                    true; // Required for iOS
+                  `);
+                }
+              }, 1000); // Longer delay to ensure WebView is fully loaded
+              
+            } catch (error: any) {
+              console.error('🔗 [Browser] UHRP resolution failed:', error);
+              
+              // Show error page for failed UHRP resolution
+              updateActiveTab({ url: pendingUrl });
+              setAddressText(pendingUrl);
+              
+              const errorHtml = `
+                <!DOCTYPE html>
+                <html>
+                  <head>
+                    <title>UHRP Error</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                      body { 
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                        text-align: center; 
+                        padding: 50px 20px; 
+                        background: #f5f5f5;
+                        color: #333;
+                      }
+                      .container { 
+                        max-width: 400px; 
+                        margin: 0 auto; 
+                        background: white; 
+                        padding: 30px; 
+                        border-radius: 10px; 
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                      }
+                      h2 { color: #e74c3c; margin-bottom: 20px; }
+                      .url { background: #f8f9fa; padding: 10px; border-radius: 5px; word-break: break-all; margin: 20px 0; }
+                      button { 
+                        background: #007AFF; 
+                        color: white; 
+                        border: none; 
+                        padding: 12px 24px; 
+                        border-radius: 6px; 
+                        font-size: 16px; 
+                        cursor: pointer;
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <h2>Failed to load UHRP content</h2>
+                      <div class="url">${pendingUrl}</div>
+                      <p>Error: ${error.message || 'Unknown error occurred while resolving UHRP URL'}</p>
+                      <button onclick="window.location.href='about:blank'">Go to Homepage</button>
+                    </div>
+                  </body>
+                </html>
+              `;
+              
+              setTimeout(() => {
+                const currentTab = tabStore.activeTab;
+                if (currentTab?.webviewRef?.current) {
+                  currentTab.webviewRef.current.injectJavaScript(`
+                    document.open();
+                    document.write(\`${errorHtml.replace(/`/g, '\\`')}\`);
+                    document.close();
+                    true; // Required for iOS
+                  `);
+                }
+              }, 1000);
+            }
+          } else {
+            // Regular URL handling
+            updateActiveTab({ url: pendingUrl });
+            setAddressText(pendingUrl);
+          }
+          
           await clearPendingUrl();
+          console.log('🔗 [Browser] Pending URL cleared');
         }
       } catch (error) {
         console.error('Error checking pending URL:', error);
@@ -472,6 +596,26 @@ function Browser() {
     }
   }, [i18n.language, activeTab]);
 
+  // Debug logging for WebView re-renders and navigation tracking
+  useEffect(() => {
+    console.log('🔄 [WEBVIEW_RENDER] WebView component may re-render due to activeTab change:', {
+      activeTabId: activeTab?.id,
+      activeTabUrl: activeTab?.url,
+      isDesktopView,
+      timestamp: new Date().toISOString()
+    });
+  }, [activeTab?.id, activeTab?.url, isDesktopView]);
+
+  // Track when the userAgent changes (could cause re-render)
+  useEffect(() => {
+    console.log('👤 [USER_AGENT_CHANGE] User agent changed:', {
+      newUserAgent: isDesktopView ? 'desktop' : 'mobile',
+      isDesktopView,
+      activeTabUrl: activeTab?.url,
+      timestamp: new Date().toISOString()
+    });
+  }, [isDesktopView]);
+
   /* -------------------------------------------------------------------------- */
   /*                                 UTILITIES                                  */
   /* -------------------------------------------------------------------------- */
@@ -489,15 +633,87 @@ function Browser() {
   /* -------------------------------------------------------------------------- */
 
   const updateActiveTab = useCallback((patch: Partial<Tab>) => {
+    console.log('📝 [UPDATE_ACTIVE_TAB] Tab update requested:', {
+      patch,
+      currentActiveTabId: tabStore.activeTabId,
+      currentUrl: tabStore.activeTab?.url,
+      timestamp: new Date().toISOString(),
+      stackTrace: new Error().stack?.split('\n').slice(1, 4).join('\n')
+    });
+
     const newUrl = patch.url
     if (newUrl && !isValidUrl(newUrl) && newUrl !== kNEW_TAB_URL) {
+      console.log('📝 [UPDATE_ACTIVE_TAB] Invalid URL detected, redirecting to new tab:', {
+        originalUrl: newUrl,
+        redirectTo: kNEW_TAB_URL,
+        timestamp: new Date().toISOString()
+      });
       patch.url = kNEW_TAB_URL
     }
+    
+    if (newUrl) {
+      console.log('📝 [UPDATE_ACTIVE_TAB] URL change will trigger WebView navigation:', {
+        from: tabStore.activeTab?.url,
+        to: newUrl,
+        tabId: tabStore.activeTabId,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     tabStore.updateTab(tabStore.activeTabId, patch)
   }, [])
 
   const onAddressSubmit = useCallback(() => {
+    console.log('🚀 [ADDRESS_SUBMIT] Starting address submission:', {
+      originalInput: addressText,
+      timestamp: new Date().toISOString(),
+      activeTabId: tabStore.activeTabId
+    });
+
     let entry = addressText.trim()
+    
+    // Check if this is a UHRP URL first
+    if (uhrpHandler.isUHRPUrl(entry)) {
+      console.log('🔗 [UHRP] Address bar UHRP URL detected:', entry);
+      
+      // Handle UHRP URL directly in the browser
+      (async () => {
+        try {
+          console.log('🔗 [UHRP] Resolving from address bar:', entry);
+          const resolvedContent = await uhrpHandler.resolveUHRPUrl(entry);
+          console.log('🔗 [UHRP] Resolved to:', resolvedContent.resolvedUrl);
+          
+          // Navigate to the resolved HTTP URL
+          if (resolvedContent.resolvedUrl) {
+            // Update the address bar to show the original UHRP URL
+            setAddressText(entry);
+            
+            // Navigate to the resolved URL using the same method as normal navigation
+            updateActiveTab({ url: resolvedContent.resolvedUrl });
+          }
+        } catch (error: any) {
+          console.error('🔗 [UHRP] Address bar resolution failed:', error);
+          // Show error in WebView
+          const errorHtml = `
+            <html>
+              <head><title>UHRP Error</title></head>
+              <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                <h2>Failed to load UHRP content</h2>
+                <p>URL: ${entry}</p>
+                <p>Error: ${error.message || 'Unknown error'}</p>
+                <button onclick="history.back()">Go Back</button>
+              </body>
+            </html>
+          `;
+          
+          // Navigate to data URL with error content
+          updateActiveTab({ url: `data:text/html,${encodeURIComponent(errorHtml)}` });
+        }
+      })();
+      
+      return; // Exit early for UHRP URLs
+    }
+    
     const isProbablyUrl =
       /^([a-z]+:\/\/|www\.|([A-Za-z0-9\-]+\.)+[A-Za-z]{2,})(\/|$)/i.test(entry)
 
@@ -508,6 +724,13 @@ function Browser() {
     if (!isValidUrl(entry)) {
       entry = kNEW_TAB_URL
     }
+
+    console.log('🚀 [ADDRESS_SUBMIT] Processed URL:', {
+      finalUrl: entry,
+      wasUrl: isProbablyUrl,
+      timestamp: new Date().toISOString(),
+      activeTabId: tabStore.activeTabId
+    });
 
     updateActiveTab({ url: entry })
     addressEditing.current = false
@@ -598,8 +821,35 @@ const navFwd = useCallback(() => {
   }, [isToggleDesktopCooldown])
 
   // User agent strings
-  const mobileUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
-  const desktopUserAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+  const metanetVersion = appConfig.expo.version // Automatically imported from app.json
+  const getMobileUserAgent = () => {
+    const osVersion = Platform.Version
+    if (Platform.OS === 'ios') {
+      // Convert iOS version to underscored format (e.g., 16.0 -> 16_0)
+      const iosVersion = typeof osVersion === 'string' ? osVersion.replace(/\./g, '_') : '16_0'
+      return `Mozilla/5.0 (iPhone; CPU iPhone OS ${iosVersion} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Metanet/${metanetVersion} Mobile/15E148`
+    } else {
+      // Android version is typically a number
+      const androidVersion = typeof osVersion === 'number' ? osVersion : 13
+      return `Mozilla/5.0 (Linux; Android ${androidVersion}; ${Platform.select({ android: 'Mobile', default: 'SM-G973F' })}) AppleWebKit/537.36 (KHTML, like Gecko) Metanet/${metanetVersion} Mobile`
+    }
+  }
+  const getDesktopUserAgent = () => {
+    const osVersion = Platform.Version
+    if (Platform.OS === 'ios') {
+      // For desktop view on iOS, use macOS format with actual iOS version converted to macOS style
+      const iosVersion = typeof osVersion === 'string' ? osVersion : '16.0'
+      // Convert iOS version to macOS version format (e.g., 16.0 -> 12_0, 15.4 -> 11_4)
+      const macOSVersion = iosVersion.replace(/\./g, '_')
+      return `Mozilla/5.0 (Macintosh; Intel Mac OS X ${macOSVersion}) AppleWebKit/537.36 (KHTML, like Gecko) Metanet/${metanetVersion}`
+    } else {
+      // For desktop view on Android, use Linux format but identify as Metanet
+      const androidVersion = typeof osVersion === 'number' ? osVersion : 13
+      return `Mozilla/5.0 (X11; Linux x86_64; Android ${androidVersion}) AppleWebKit/537.36 (KHTML, like Gecko) Metanet/${metanetVersion}`
+    }
+  }
+  const mobileUserAgent = getMobileUserAgent()
+  const desktopUserAgent = getDesktopUserAgent()
 
   useEffect(() => {
     if (tabStore.tabs.length === 0) {
@@ -1085,7 +1335,7 @@ const navFwd = useCallback(() => {
       // Handle fullscreen requests
       if (msg.type === 'REQUEST_FULLSCREEN') {
         console.log('Fullscreen requested by website');
-        setIsFullscreen(true);
+        await enterFullscreen();
         
         // Send success response back to webview
         if (activeTab.webviewRef?.current) {
@@ -1110,7 +1360,7 @@ const navFwd = useCallback(() => {
       // Handle exit fullscreen requests
       if (msg.type === 'EXIT_FULLSCREEN') {
         console.log('Exit fullscreen requested by website');
-        setIsFullscreen(false);
+        await exitFullscreen();
         
         // Send response back to webview
         if (activeTab.webviewRef?.current) {
@@ -1304,20 +1554,59 @@ const navFwd = useCallback(() => {
   /* -------------------------------------------------------------------------- */
   /*                      NAV STATE CHANGE → HISTORY TRACKING                   */
   /* -------------------------------------------------------------------------- */  
-  const handleNavStateChange = (navState: WebViewNavigation) => {
+  const handleNavStateChange = useCallback((navState: WebViewNavigation) => {
+  console.log('🌐 [NAV_STATE_CHANGE] WebView navigation event received:', {
+    url: navState.url,
+    title: navState.title,
+    loading: navState.loading,
+    canGoBack: navState.canGoBack,
+    canGoForward: navState.canGoForward,
+    activeTabId: tabStore.activeTabId,
+    currentTabUrl: activeTab?.url,
+    timestamp: new Date().toISOString()
+  });
+
   // Safety check - if activeTab is undefined, we cannot process navigation
   if (!activeTab) {
-    console.warn('Cannot handle navigation state change: activeTab is undefined');
+    console.warn('⚠️ [NAV_STATE_CHANGE] Cannot handle navigation: activeTab is undefined');
     return;
   }
     
   // Ignore favicon requests for about:blank
   if (navState.url?.includes('favicon.ico') && activeTab.url === kNEW_TAB_URL) {
+    console.log('🚫 [NAV_STATE_CHANGE] Ignoring favicon request for new tab');
     return;
   }
+
+  // Check if this is a duplicate navigation state (same URL, same loading state)
+  const now = Date.now();
+  const lastNavState = lastNavStateRef.current;
+  const isDuplicate = lastNavState && 
+    lastNavState.url === navState.url && 
+    lastNavState.loading === navState.loading &&
+    lastNavState.canGoBack === navState.canGoBack &&
+    lastNavState.canGoForward === navState.canGoForward;
+
+  // Throttle rapid navigation state changes (less than 50ms apart)
+  const isThrottled = (now - lastNavStateTimestamp.current) < 50;
+
+  if (isDuplicate) {
+    console.log('🔄 [NAV_STATE_CHANGE] Skipping duplicate navigation state for same URL/state');
+    return;
+  }
+
+  if (isThrottled && lastNavState?.url === navState.url) {
+    console.log('⏱️ [NAV_STATE_CHANGE] Throttling rapid navigation state change for same URL');
+    return;
+  }
+
+  // Store this navigation state for future duplicate detection
+  lastNavStateRef.current = navState;
+  lastNavStateTimestamp.current = now;
   
   // Log navigation state changes with back/forward capabilities
-  console.log('🌐 Navigation State Change:', {
+  const processingStart = performance.now();
+  console.log('🌐 [NAV_STATE_CHANGE] Processing navigation:', {
     url: navState.url,
     title: navState.title,
     loading: navState.loading,
@@ -1327,12 +1616,18 @@ const navFwd = useCallback(() => {
   });
   
   // Make sure we're updating the correct tab's navigation state
+  console.log('📊 [NAV_STATE_CHANGE] Updating tab store navigation state for tab:', activeTab.id);
   tabStore.handleNavigationStateChange(activeTab.id, navState)
   
-  if (!addressEditing.current) setAddressText(navState.url)
+  if (!addressEditing.current) {
+    console.log('📍 [NAV_STATE_CHANGE] Updating address text to:', navState.url);
+    setAddressText(navState.url)
+  } else {
+    console.log('📍 [NAV_STATE_CHANGE] Address editing in progress, skipping address text update');
+  }
 
   if (!navState.loading && navState.url !== kNEW_TAB_URL) {
-    console.log('📄 Webpage Loaded:', {
+    console.log('📄 [NAV_STATE_CHANGE] Webpage fully loaded, adding to history:', {
       url: navState.url,
       title: navState.title,
       canGoBack: navState.canGoBack,
@@ -1345,8 +1640,14 @@ const navFwd = useCallback(() => {
       url: navState.url,
       timestamp: Date.now()
     }).catch(() => { })
+  } else if (navState.loading) {
+    console.log('⏳ [NAV_STATE_CHANGE] Page is still loading...');
   }
-}
+
+  // Log completion time for performance tracking
+  const processingTime = performance.now() - processingStart;
+  console.log('✅ [NAV_STATE_CHANGE] Navigation state processing completed in', processingTime.toFixed(2), 'ms');
+}, [activeTab, tabStore, setAddressText, pushHistory])
 
   /* -------------------------------------------------------------------------- */
   /*                          SHARE / HOMESCREEN SHORTCUT                       */
@@ -1473,10 +1774,144 @@ const navFwd = useCallback(() => {
 
   // State for clear confirm modal (move this above scene components)
 
-  const handleSetStartingUrl = useCallback((url: string) => {
-    updateActiveTab({ url })
-    toggleStarDrawer(false)
+  const handleSetStartingUrl = useCallback(async (url: string) => {
+    // Check if this is a UHRP URL
+    if (uhrpHandler.isUHRPUrl(url)) {
+      console.log('🔗 [BOOKMARK_DRAWER] UHRP URL detected, resolving directly:', url);
+      try {
+        // Resolve UHRP URL directly and navigate to resolved content
+        const resolvedContent = await uhrpHandler.resolveUHRPUrl(url);
+        console.log('🔗 [BOOKMARK_DRAWER] UHRP resolved to:', resolvedContent.resolvedUrl);
+        
+        if (resolvedContent.resolvedUrl) {
+          updateActiveTab({ url: resolvedContent.resolvedUrl });
+        }
+        toggleStarDrawer(false);
+      } catch (error) {
+        console.error('🔗 [BOOKMARK_DRAWER] UHRP resolution failed:', error);
+        // Show error page
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>UHRP Error</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                  text-align: center; 
+                  padding: 50px 20px; 
+                  background: #f5f5f5;
+                  color: #333;
+                }
+                .container { 
+                  max-width: 400px; 
+                  margin: 0 auto; 
+                  background: white; 
+                  padding: 30px; 
+                  border-radius: 10px; 
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                h2 { color: #e74c3c; margin-bottom: 20px; }
+                .url { background: #f8f9fa; padding: 10px; border-radius: 5px; word-break: break-all; margin: 20px 0; }
+                button { 
+                  background: #007AFF; 
+                  color: white; 
+                  border: none; 
+                  padding: 12px 24px; 
+                  border-radius: 6px; 
+                  font-size: 16px; 
+                  cursor: pointer;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h2>Failed to load UHRP content</h2>
+                <div class="url">${url}</div>
+                <p>Error: ${(error as any)?.message || 'Unknown error occurred while resolving UHRP URL'}</p>
+                <button onclick="window.location.href='about:blank'">Go to Homepage</button>
+              </div>
+            </body>
+          </html>
+        `;
+        updateActiveTab({ url: `data:text/html,${encodeURIComponent(errorHtml)}` });
+        toggleStarDrawer(false);
+      }
+    } else {
+      // Normal HTTP/HTTPS URL, use regular navigation
+      updateActiveTab({ url });
+      toggleStarDrawer(false);
+    }
   }, [updateActiveTab])
+
+  const handleHomepageNavigation = useCallback(async (url: string) => {
+    // Check if this is a UHRP URL
+    if (uhrpHandler.isUHRPUrl(url)) {
+      console.log('🔗 [HOMEPAGE] UHRP URL detected, resolving directly:', url);
+      try {
+        // Resolve UHRP URL directly and navigate to resolved content
+        const resolvedContent = await uhrpHandler.resolveUHRPUrl(url);
+        console.log('🔗 [HOMEPAGE] UHRP resolved to:', resolvedContent.resolvedUrl);
+        
+        if (resolvedContent.resolvedUrl) {
+          updateActiveTab({ url: resolvedContent.resolvedUrl });
+        }
+      } catch (error) {
+        console.error('🔗 [HOMEPAGE] UHRP resolution failed:', error);
+        // Show error page
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>UHRP Error</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { 
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                  text-align: center; 
+                  padding: 50px 20px; 
+                  background: #f5f5f5;
+                  color: #333;
+                }
+                .container { 
+                  max-width: 400px; 
+                  margin: 0 auto; 
+                  background: white; 
+                  padding: 30px; 
+                  border-radius: 10px; 
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+                h2 { color: #e74c3c; margin-bottom: 20px; }
+                .url { background: #f8f9fa; padding: 10px; border-radius: 5px; word-break: break-all; margin: 20px 0; }
+                button { 
+                  background: #007AFF; 
+                  color: white; 
+                  border: none; 
+                  padding: 12px 24px; 
+                  border-radius: 6px; 
+                  font-size: 16px; 
+                  cursor: pointer;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h2>Failed to load UHRP content</h2>
+                <div class="url">${url}</div>
+                <p>Error: ${(error as any)?.message || 'Unknown error occurred while resolving UHRP URL'}</p>
+                <button onclick="window.location.href='about:blank'">Go to Homepage</button>
+              </div>
+            </body>
+          </html>
+        `;
+        updateActiveTab({ url: `data:text/html,${encodeURIComponent(errorHtml)}` });
+      }
+    } else {
+      // Normal HTTP/HTTPS URL, use regular navigation
+      updateActiveTab({ url });
+    }
+  }, [updateActiveTab]);
 
   const BookmarksScene = useMemo(() => {
   return () => (
@@ -1646,7 +2081,7 @@ const navFwd = useCallback(() => {
   useEffect(() => {
     if (isFullscreen) {
       const backHandler = () => {
-        setIsFullscreen(false);
+        exitFullscreen();
         // Notify webview that fullscreen exited
         activeTab?.webviewRef.current?.injectJavaScript(`
           window.dispatchEvent(new MessageEvent('message', {
@@ -1665,7 +2100,7 @@ const navFwd = useCallback(() => {
         return () => subscription.remove();
       }
     }
-  }, [isFullscreen, activeTab?.webviewRef]);
+  }, [isFullscreen, activeTab?.webviewRef, exitFullscreen]);
 
   const starDrawerAnimatedStyle = useMemo(() => ([
     styles.starDrawer,
@@ -1683,6 +2118,188 @@ const navFwd = useCallback(() => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* Fullscreen Overlay for both iOS and Android */}
+      {isFullscreen && (
+        <RNModal
+          animationType="fade"
+          transparent={false}
+          visible={isFullscreen}
+          onRequestClose={exitFullscreen}
+          statusBarTranslucent={true}
+          supportedOrientations={['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']}
+          onOrientationChange={(orientation) => {
+            console.log('Orientation changed to:', orientation);
+          }}
+        >
+          <View style={{ flex: 1, backgroundColor: 'black' }}>
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                top: Platform.OS === 'ios' ? 50 : 30,
+                right: 20,
+                zIndex: 1000,
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                borderRadius: 20,
+                width: 40,
+                height: 40,
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}
+              onPress={exitFullscreen}
+            >
+              <Ionicons name="contract-outline" size={20} color="white" />
+            </TouchableOpacity>
+            {activeTab && (
+              <WebView
+                ref={activeTab?.webviewRef}
+                source={{ 
+                  uri: activeTab?.url,
+                  headers: {
+                    'Accept-Language': getAcceptLanguageHeader()
+                  }
+                }}
+                originWhitelist={['https://*', 'http://*']}
+                onMessage={handleMessage}
+                injectedJavaScript={injectedJavaScript}
+                onNavigationStateChange={handleNavStateChange}
+                onLoadStart={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.log('🚀 [WEBVIEW_LOAD_START] Navigation started:', {
+                    url: nativeEvent.url,
+                    title: nativeEvent.title,
+                    loading: nativeEvent.loading,
+                    canGoBack: nativeEvent.canGoBack,
+                    canGoForward: nativeEvent.canGoForward,
+                    activeTabId: tabStore.activeTabId,
+                    activeTabUrl: activeTab?.url,
+                    timestamp: new Date().toISOString()
+                  });
+                }}
+                onLoadProgress={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  if (nativeEvent.progress === 0 || nativeEvent.progress === 1) {
+                    console.log('📊 [WEBVIEW_LOAD_PROGRESS] Navigation progress:', {
+                      url: nativeEvent.url,
+                      title: nativeEvent.title,
+                      progress: nativeEvent.progress,
+                      loading: nativeEvent.loading,
+                      canGoBack: nativeEvent.canGoBack,
+                      canGoForward: nativeEvent.canGoForward,
+                      timestamp: new Date().toISOString()
+                    });
+                  }
+                }}
+                onLoadEnd={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.log('✅ [WEBVIEW_LOAD_END] Navigation completed:', {
+                    url: nativeEvent.url,
+                    title: nativeEvent.title,
+                    loading: nativeEvent.loading,
+                    canGoBack: nativeEvent.canGoBack,
+                    canGoForward: nativeEvent.canGoForward,
+                    timestamp: new Date().toISOString()
+                  });
+                }}
+                onShouldStartLoadWithRequest={(request: any) => {
+                  console.log('🤔 [WEBVIEW_SHOULD_START_LOAD] Navigation request evaluation:', {
+                    url: request.url,
+                    title: request.title,
+                    isMainFrame: request.mainDocumentURL === request.url,
+                    mainDocumentURL: request.mainDocumentURL,
+                    navigationType: request.navigationType,
+                    timestamp: new Date().toISOString()
+                  });
+                  
+                  // Check if this is a UHRP URL
+                  if (uhrpHandler.isUHRPUrl(request.url)) {
+                    console.log('🔗 [UHRP] Intercepting UHRP URL:', request.url);
+                    
+                    // Resolve UHRP URL to HTTP URL and navigate to it
+                    (async () => {
+                      try {
+                        console.log('🔗 [UHRP] Resolving URL:', request.url);
+                        const resolvedContent = await uhrpHandler.resolveUHRPUrl(request.url);
+                        console.log('🔗 [UHRP] Resolved to:', resolvedContent.resolvedUrl);
+                        
+                        // Navigate to the resolved HTTP URL
+                        if (resolvedContent.resolvedUrl && activeTab?.webviewRef?.current) {
+                          // Use setTimeout to ensure the WebView is ready, then navigate
+                          setTimeout(() => {
+                            if (activeTab?.webviewRef?.current) {
+                              activeTab.webviewRef.current.injectJavaScript(`
+                                window.location.href = '${resolvedContent.resolvedUrl}';
+                                true; // Required for iOS
+                              `);
+                            }
+                          }, 100);
+                        }
+                      } catch (error: any) {
+                        console.error('🔗 [UHRP] Resolution failed:', error);
+                        // Show error in WebView by loading an error page
+                        const errorHtml = `
+                          <html>
+                            <head><title>UHRP Error</title></head>
+                            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                              <h2>Failed to load UHRP content</h2>
+                              <p>URL: ${request.url}</p>
+                              <p>Error: ${error.message || 'Unknown error'}</p>
+                              <button onclick="history.back()">Go Back</button>
+                            </body>
+                          </html>
+                        `;
+                        
+                        if (activeTab?.webviewRef?.current) {
+                          setTimeout(() => {
+                            if (activeTab?.webviewRef?.current) {
+                              activeTab.webviewRef.current.injectJavaScript(`
+                                document.open();
+                                document.write(\`${errorHtml.replace(/`/g, '\\`')}\`);
+                                document.close();
+                                true; // Required for iOS
+                              `);
+                            }
+                          }, 100);
+                        }
+                      }
+                    })();
+                    
+                    return false; // Prevent WebView from loading the original UHRP URL
+                  }
+                  
+                  return true; // Allow all other requests
+                }}
+                userAgent={isDesktopView ? desktopUserAgent : mobileUserAgent}
+                onError={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  // Ignore favicon errors for about:blank
+                  if (nativeEvent.url?.includes('favicon.ico') && activeTab?.url === kNEW_TAB_URL) {
+                    return;
+                  }
+                  console.warn('❌ [WEBVIEW_ERROR] WebView error:', nativeEvent);
+                }}
+                onHttpError={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  // Ignore favicon errors for about:blank
+                  if (nativeEvent.url?.includes('favicon.ico') && activeTab?.url === kNEW_TAB_URL) {
+                    return;
+                  }
+                  console.warn('🌐 [WEBVIEW_HTTP_ERROR] WebView HTTP error:', nativeEvent);
+                }}
+                javaScriptEnabled
+                domStorageEnabled
+                allowsFullscreenVideo={true}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                allowsLinkPreview={false}
+                allowsProtectedMedia={true}
+                allowsBackForwardNavigationGestures
+                style={{ flex: 1 }}
+              />
+            )}
+          </View>
+        </RNModal>
+      )}
+      
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={addressFocused
@@ -1699,62 +2316,39 @@ const navFwd = useCallback(() => {
                 ? 0
                 : isFullscreen 
                   ? 0 
-                  : Platform.OS === 'ios' ? 0 : insets.bottom
+                  : Platform.OS === 'ios' ? 0 : insets.bottom,
+              // Hide content when fullscreen modal is active
+              opacity: isFullscreen ? 0 : 1,
             }
           ]}
         >
           <StatusBar style={isDark ? 'light' : 'dark'} hidden={isFullscreen} />
 
           {activeTab?.url === kNEW_TAB_URL ? (
-            <RecommendedApps
-            includeBookmarks={bookmarkStore.bookmarks.filter(bookmark => {
-              return bookmark.url && 
-                    bookmark.url !== kNEW_TAB_URL && 
-                    isValidUrl(bookmark.url) &&
-                    !bookmark.url.includes('about:blank')
-            }).reverse() }
-            
-            setStartingUrl={url => updateActiveTab({ url })}
-            onRemoveBookmark={removeBookmark}
-            onRemoveDefaultApp={removeDefaultApp}
-            removedDefaultApps={removedDefaultApps}
-            homepageSettings={homepageSettings}
-            onUpdateHomepageSettings={updateHomepageSettings}
-          />
+            <TouchableWithoutFeedback onPress={dismissKeyboard}>
+              <View style={{ flex: 1 }}>
+                <RecommendedApps
+                includeBookmarks={bookmarkStore.bookmarks.filter(bookmark => {
+                  return bookmark.url && 
+                        bookmark.url !== kNEW_TAB_URL && 
+                        isValidUrl(bookmark.url) &&
+                        !bookmark.url.includes('about:blank')
+                }).reverse() }
+                
+                setStartingUrl={handleHomepageNavigation}
+                onRemoveBookmark={removeBookmark}
+                onRemoveDefaultApp={removeDefaultApp}
+                removedDefaultApps={removedDefaultApps}
+                homepageSettings={homepageSettings}
+                onUpdateHomepageSettings={updateHomepageSettings}
+              />
+              </View>
+            </TouchableWithoutFeedback>
         ) : activeTab ? (
             <View
               style={{ flex: 1 }}
               {...responderProps}
             >
-              {isFullscreen && (
-                <TouchableOpacity
-                  style={{
-                    position: 'absolute',
-                    top: insets.top + 10,
-                    right: 20,
-                    zIndex: 1000,
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    borderRadius: 20,
-                    width: 40,
-                    height: 40,
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}
-                  onPress={() => {
-                    setIsFullscreen(false);
-                    activeTab?.webviewRef.current?.injectJavaScript(`
-                      window.dispatchEvent(new MessageEvent('message', {
-                        data: JSON.stringify({
-                          type: 'FULLSCREEN_CHANGE',
-                          isFullscreen: false
-                        })
-                      }));
-                    `);
-                  }}
-                >
-                  <Ionicons name="contract-outline" size={20} color="white" />
-                </TouchableOpacity>
-              )}
               <WebView
                 ref={activeTab?.webviewRef}
                 source={{ 
@@ -1798,6 +2392,112 @@ const navFwd = useCallback(() => {
                   `
                 }
                 onNavigationStateChange={handleNavStateChange}
+                onLoadStart={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.log('🚀 [WEBVIEW_LOAD_START] Navigation started:', {
+                    url: nativeEvent.url,
+                    title: nativeEvent.title,
+                    loading: nativeEvent.loading,
+                    canGoBack: nativeEvent.canGoBack,
+                    canGoForward: nativeEvent.canGoForward,
+                    activeTabId: tabStore.activeTabId,
+                    activeTabUrl: activeTab?.url,
+                    timestamp: new Date().toISOString()
+                  });
+                }}
+                onLoadProgress={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  if (nativeEvent.progress === 0 || nativeEvent.progress === 1) {
+                    console.log('📊 [WEBVIEW_LOAD_PROGRESS] Navigation progress:', {
+                      url: nativeEvent.url,
+                      title: nativeEvent.title,
+                      progress: nativeEvent.progress,
+                      loading: nativeEvent.loading,
+                      canGoBack: nativeEvent.canGoBack,
+                      canGoForward: nativeEvent.canGoForward,
+                      timestamp: new Date().toISOString()
+                    });
+                  }
+                }}
+                onLoadEnd={(syntheticEvent: any) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.log('✅ [WEBVIEW_LOAD_END] Navigation completed:', {
+                    url: nativeEvent.url,
+                    title: nativeEvent.title,
+                    loading: nativeEvent.loading,
+                    canGoBack: nativeEvent.canGoBack,
+                    canGoForward: nativeEvent.canGoForward,
+                    timestamp: new Date().toISOString()
+                  });
+                }}
+                onShouldStartLoadWithRequest={(request: any) => {
+                  console.log('🤔 [WEBVIEW_SHOULD_START_LOAD] Navigation request evaluation:', {
+                    url: request.url,
+                    title: request.title,
+                    isMainFrame: request.mainDocumentURL === request.url,
+                    mainDocumentURL: request.mainDocumentURL,
+                    navigationType: request.navigationType,
+                    timestamp: new Date().toISOString()
+                  });
+                  
+                  // Check if this is a UHRP URL
+                  if (uhrpHandler.isUHRPUrl(request.url)) {
+                    console.log('🔗 [UHRP] Intercepting UHRP URL:', request.url);
+                    
+                    // Resolve UHRP URL to HTTP URL and navigate to it
+                    (async () => {
+                      try {
+                        console.log('🔗 [UHRP] Resolving URL:', request.url);
+                        const resolvedContent = await uhrpHandler.resolveUHRPUrl(request.url);
+                        console.log('🔗 [UHRP] Resolved to:', resolvedContent.resolvedUrl);
+                        
+                        // Navigate to the resolved HTTP URL
+                        if (resolvedContent.resolvedUrl && activeTab?.webviewRef?.current) {
+                          // Use setTimeout to ensure the WebView is ready, then navigate
+                          setTimeout(() => {
+                            if (activeTab?.webviewRef?.current) {
+                              activeTab.webviewRef.current.injectJavaScript(`
+                                window.location.href = '${resolvedContent.resolvedUrl}';
+                                true; // Required for iOS
+                              `);
+                            }
+                          }, 100);
+                        }
+                      } catch (error: any) {
+                        console.error('🔗 [UHRP] Resolution failed:', error);
+                        // Show error in WebView by loading an error page
+                        const errorHtml = `
+                          <html>
+                            <head><title>UHRP Error</title></head>
+                            <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                              <h2>Failed to load UHRP content</h2>
+                              <p>URL: ${request.url}</p>
+                              <p>Error: ${error.message || 'Unknown error'}</p>
+                              <button onclick="history.back()">Go Back</button>
+                            </body>
+                          </html>
+                        `;
+                        
+                        if (activeTab?.webviewRef?.current) {
+                          setTimeout(() => {
+                            if (activeTab?.webviewRef?.current) {
+                              activeTab.webviewRef.current.injectJavaScript(`
+                                document.open();
+                                document.write(\`${errorHtml.replace(/`/g, '\\`')}\`);
+                                document.close();
+                                true; // Required for iOS
+                              `);
+                            }
+                          }, 100);
+                        }
+                      }
+                    })();
+                    
+                    return false; // Prevent WebView from loading the original UHRP URL
+                  }
+                  
+                  return true; // Allow all other requests
+                }}
                 userAgent={isDesktopView ? desktopUserAgent : mobileUserAgent}
                 onError={(syntheticEvent: any) => {
                   const { nativeEvent } = syntheticEvent;
@@ -1805,7 +2505,7 @@ const navFwd = useCallback(() => {
                   if (nativeEvent.url?.includes('favicon.ico') && activeTab?.url === kNEW_TAB_URL) {
                     return;
                   }
-                  console.warn('WebView error:', nativeEvent);
+                  console.warn('❌ [WEBVIEW_ERROR] WebView error:', nativeEvent);
                 }}
                 onHttpError={(syntheticEvent: any) => {
                   const { nativeEvent } = syntheticEvent;
@@ -1813,10 +2513,15 @@ const navFwd = useCallback(() => {
                   if (nativeEvent.url?.includes('favicon.ico') && activeTab?.url === kNEW_TAB_URL) {
                     return;
                   }
-                  console.warn('WebView HTTP error:', nativeEvent);
+                  console.warn('🌐 [WEBVIEW_HTTP_ERROR] WebView HTTP error:', nativeEvent);
                 }}
                 javaScriptEnabled
                 domStorageEnabled
+                allowsFullscreenVideo={true}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                allowsLinkPreview={false}
+                allowsProtectedMedia={true}
                 allowsBackForwardNavigationGestures
                 containerStyle={{ backgroundColor: colors.background }}
                 style={{ flex: 1 }}
@@ -1875,7 +2580,7 @@ const navFwd = useCallback(() => {
               value={
                 addressDisplay === 'new-tab-page' ? '' : addressDisplay
               }
-              onChangeText={onChangeAddressText}
+                           onChangeText={onChangeAddressText}
               onFocus={() => {
                 addressEditing.current = true
                 setAddressFocused(true)
@@ -2150,6 +2855,7 @@ const navFwd = useCallback(() => {
             </Animated.View>
           </Modal>
           
+                   
           {/* Clear History Confirmation Modal */}
           <RNModal
             transparent
@@ -2234,7 +2940,7 @@ const TabsViewBase = ({
   const screen = Dimensions.get('window')
   const ITEM_W = screen.width * 0.42
   const ITEM_H = screen.height * 0.28
-  const insets = useSafeAreaInsets()
+   const insets = useSafeAreaInsets()
 
 // Animation for new tab button
   const newTabScale = useRef(new Animated.Value(1)).current
@@ -2453,7 +3159,7 @@ const TabsViewBase = ({
           ]} 
           onPress={onDismiss}
         >
-          <Text style={[styles.doneButtonText, { color: colors.background }]}>
+             <Text style={[ { color: colors.background }]}>
             {t('done')}
           </Text>
         </TouchableOpacity>
@@ -2621,83 +3327,92 @@ const BottomToolbar = ({
         }
       ]}
     >    
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={() => {
-          console.log('🔘 Back Button Pressed:', {
-            canGoBack: activeTab.canGoBack,
-            url: activeTab.url,
-            isNewTab: activeTab.url === kNEW_TAB_URL,
-            disabled: isBackDisabled
-          });
-          navBack();
-        }}
-        disabled={isBackDisabled}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons
-          name='arrow-back'
-          size={24}
-          color={!isBackDisabled ? colors.textPrimary : '#cccccc'}
-        />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={() => {
-          console.log('🔘 Forward Button Pressed:', {
-            canGoForward: activeTab.canGoForward,
-            url: activeTab.url,
-            isNewTab: activeTab.url === kNEW_TAB_URL,
-            disabled: isForwardDisabled
-          });
-          navFwd();
-        }}
-        disabled={isForwardDisabled}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons
-          name='arrow-forward'
-          size={24}
-          color={!isForwardDisabled ? colors.textPrimary : '#cccccc'}
-        />
-      </TouchableOpacity>
+      {/* Left side navigation buttons */}
+      <View style={styles.toolbarSection}>
+        <TouchableOpacity
+          style={[styles.toolbarButton, { opacity: isBackDisabled ? 0.3 : 1 }]}
+          onPress={() => {
+            console.log('🔘 Back Button Pressed:', {
+              canGoBack: activeTab.canGoBack,
+              url: activeTab.url,
+              isNewTab: activeTab.url === kNEW_TAB_URL,
+              disabled: isBackDisabled
+            });
+            navBack();
+          }}
+          disabled={isBackDisabled}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons
+            name='arrow-back'
+            size={24}
+            color={colors.textPrimary}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toolbarButton, { opacity: isForwardDisabled ? 0.3 : 1 }]}
+          onPress={() => {
+            console.log('🔘 Forward Button Pressed:', {
+              canGoForward: activeTab.canGoForward,
+              url: activeTab.url,
+              isNewTab: activeTab.url === kNEW_TAB_URL,
+              disabled: isForwardDisabled
+            });
+            navFwd();
+          }}
+          disabled={isForwardDisabled}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons
+            name='arrow-forward'
+            size={24}
+            color={colors.textPrimary}
+          />
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={shareCurrent}
-        disabled={activeTab.url === kNEW_TAB_URL}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons
-          name='share-outline'
-          size={24}
-          color={activeTab.url === kNEW_TAB_URL ? colors.textSecondary : colors.textPrimary}
-        />
-      </TouchableOpacity>
+      {/* Center share button */}
+      <View style={styles.toolbarCenter}>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={shareCurrent}
+          disabled={activeTab.url === kNEW_TAB_URL}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons
+            name='share-outline'
+            size={24}
+            color={activeTab.url === kNEW_TAB_URL ? colors.textSecondary : colors.textPrimary}
+          />
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={handleStarPress}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons name='star-outline' size={24} color={colors.textPrimary} />
-      </TouchableOpacity>
+      {/* Right side action buttons */}
+      <View style={styles.toolbarSection}>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={handleStarPress}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons name='star-outline' size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.toolbarButton}
-        onPress={handleTabsPress}
-        activeOpacity={0.6}
-        delayPressIn={0}
-      >
-        <Ionicons name='copy-outline' size={24} color={colors.textPrimary} />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.toolbarButton}
+          onPress={handleTabsPress}
+          activeOpacity={0.6}
+          delayPressIn={0}
+        >
+          <Ionicons name='copy-outline' size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
     </View>
   )
-};
+}
 
 /* -------------------------------------------------------------------------- */
 /*                                    CSS                                     */
@@ -2718,9 +3433,21 @@ const styles = StyleSheet.create({
   padlock: { marginRight: 4 },
   bottomBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    alignItems: 'center',
     paddingVertical: 6,
-    borderTopWidth: StyleSheet.hairlineWidth
+    paddingHorizontal: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  toolbarSection: {
+    flexDirection: 'row',
+    flex: 1,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  toolbarCenter: {
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toolbarButton: { padding: 6 },
   toolbarIcon: { fontSize: 20 },
@@ -2837,10 +3564,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
-  },
-  doneButtonText: {
-    fontSize: 16,
-    fontWeight: '600'
   },
   newTabBtn: {
     width: 56,

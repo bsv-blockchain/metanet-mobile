@@ -8,7 +8,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   TextInput,
-  Alert 
+  Alert,
+  Keyboard
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -49,9 +50,10 @@ export default function PasswordScreen() {
   // Handle password submission
   const handleSubmit = async () => {
     if (!isButtonEnabled()) return;
-    
+    Keyboard.dismiss();
     setLoading(true);
-    
+    //wait 20 ms for better UX
+    await new Promise(resolve => setTimeout(resolve, 20));
     try {
       await managers!.walletManager!.providePassword(password);
       
@@ -94,6 +96,8 @@ export default function PasswordScreen() {
                 value={password}
                 onChangeText={setPassword}
                 autoFocus
+                autoCapitalize="none"
+                autoCorrect={false}
               />
               <TouchableOpacity 
                 onPress={() => setShowPassword(!showPassword)}
