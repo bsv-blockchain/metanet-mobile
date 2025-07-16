@@ -1937,7 +1937,9 @@ function Browser() {
                     flex: 1,
                     backgroundColor: colors.background,
                     color: colors.textPrimary,
-                    textAlign: addressFocused ? 'left' : 'center'
+                    textAlign: addressFocused ? 'left' : 'center',
+                    height: 40, // Add explicit height for iOS
+                    paddingVertical: 8 // Add padding for better appearance
                   }
                 ]}
                 placeholder={t('search_placeholder')}
