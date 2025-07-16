@@ -499,11 +499,32 @@ function Browser() {
 
   const onAddressSubmit = useCallback(() => {
     let entry = addressText.trim()
-    const isProbablyUrl = /^([a-z]+:\/\/|www\.|([A-Za-z0-9\-]+\.)+[A-Za-z]{2,})(\/|$)/i.test(entry)
 
-    if (entry === '') entry = kNEW_TAB_URL
-    else if (!isProbablyUrl) entry = kGOOGLE_PREFIX + encodeURIComponent(entry)
-    else if (!/^[a-z]+:\/\//i.test(entry)) entry = 'https://' + entry
+    // Check if entry already has a protocol prefix
+    const hasProtocol = /^[a-z]+:\/\//i.test(entry)
+
+    // Check for IP address format - basic IPv4 pattern
+    const isIpAddress = /^\d{1,3}(\.\d{1,3}){3}(:\d+)?(\/.*)?$/i.test(entry)
+
+    // Check if it's likely a URL (protocol, www, domain, or IP address)
+    const isProbablyUrl = hasProtocol || /^(www\.|([A-Za-z0-9\-]+\.)+[A-Za-z]{2,})(\/|$)/i.test(entry) || isIpAddress
+
+    if (entry === '') {
+      entry = kNEW_TAB_URL
+    } else if (!isProbablyUrl) {
+      // Not a URL, treat as a search query
+      entry = kGOOGLE_PREFIX + encodeURIComponent(entry)
+    } else if (!hasProtocol) {
+      // Add appropriate protocol based on whether it's an IP address or regular domain
+      if (isIpAddress) {
+        // For IP addresses, default to HTTP which is more common for local network devices
+        entry = 'http://' + entry
+      } else {
+        // For regular domains, use HTTPS for security
+        entry = 'https://' + entry
+      }
+    }
+    // URLs with protocol (like https://) pass through unchanged
 
     if (!isValidUrl(entry)) {
       entry = kNEW_TAB_URL
@@ -622,9 +643,9 @@ function Browser() {
   const responderProps =
     addressFocused && keyboardVisible
       ? {
-          onStartShouldSetResponder: () => true,
-          onResponderRelease: dismissKeyboard
-        }
+        onStartShouldSetResponder: () => true,
+        onResponderRelease: dismissKeyboard
+      }
       : {}
 
   /* -------------------------------------------------------------------------- */
@@ -1293,8 +1314,8 @@ function Browser() {
       activeTab.webviewRef.current.injectJavaScript(`
         window.dispatchEvent(new MessageEvent('message', {
           data: JSON.stringify({
-            type: 'SCAN_RESULT',
-            result: ${JSON.stringify(scannedData)}
+            type: 'SCAN_RESPONSE',
+            data: ${JSON.stringify(scannedData)}
           })
         }));
         true;
@@ -1349,7 +1370,7 @@ function Browser() {
         title: navState.title || navState.url,
         url: navState.url,
         timestamp: Date.now()
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }
 
@@ -1769,27 +1790,45 @@ function Browser() {
                 injectedJavaScript={
                   injectedJavaScript +
                   `
-                  window.scanCodeWithCamera = function(reason) {
+                  window.scanCodeWithCamera = function(reason, fullScreen = true) {
                     return new Promise((resolve, reject) => {
                       const handleScanResponse = (event) => {
                         try {
-                          const data = JSON.parse(event.data);
+                          // Handle both string and object data
+                          let data;
+                          if (typeof event.data === 'string') {
+                            data = JSON.parse(event.data);
+                          } else {
+                            data = event.data;
+                          }
+                          
                           if (data.type === 'SCAN_RESPONSE') {
+                            window.removeEventListener('message', handleScanResponse); // Clean up
                             clearTimeout(timeout);
                             resolve(data.data);
+                          } else if (data.type === 'SCAN_ERROR') {
+                            window.removeEventListener('message', handleScanResponse); // Clean up
+                            clearTimeout(timeout);
+                            reject(new Error(data.error || 'Scan failed'));
                           }
                         } catch (e) {
-                          // Ignore parsing errors
+                          console.error('WebView: Error handling scan response:', e);
+                          // Don't remove listener here, we might still get a valid response
                         }
                       };
 
-                      window.addEventListener('message', handleScanResponse, { once: true });
+                      // Use a regular event listener so we can handle multiple messages
+                      window.addEventListener('message', handleScanResponse);
   
+                      // Send request to React Native
                       window.ReactNativeWebView?.postMessage(JSON.stringify({
-                        type: 'REQUEST_SCAN'
+                        type: 'REQUEST_SCAN',
+                        reason: reason,
+                        fullScreen: fullScreen
                       }));
 
                       const timeout = setTimeout(() => {
+                        window.removeEventListener('message', handleScanResponse);
                         reject(new Error('Scan timeout'));
                       }, 60000);
                     });
