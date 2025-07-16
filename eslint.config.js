@@ -1,25 +1,15 @@
 // https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config')
-const expoConfig = require('eslint-config-expo/flat')
-const prettierConfig = require('eslint-config-prettier')
-const prettierPlugin = require('eslint-plugin-prettier')
+import expoConfig from 'eslint-config-expo/latest';
 
-module.exports = defineConfig([
-  expoConfig,
-  // Apply prettier plugin to run Prettier as part of ESLint
+export default [
+  ...expoConfig,
   {
-    plugins: {
-      prettier: prettierPlugin
-    },
-    rules: {
-      ...prettierPlugin.configs.recommended.rules,
-      'prettier/prettier': 'warn'
-    }
-  },
-  // This disables ESLint rules that conflict with Prettier
-  prettierConfig,
-  // Project-specific settings
-  {
-    ignores: ['dist/*']
+    // Keep only basic ESLint rules without Prettier enforcement
+    ignores: [
+      'node_modules/',
+      'babel.config.js',
+      'metro.config.js',
+      'jest.config.js'
+    ]
   }
-])
+];
