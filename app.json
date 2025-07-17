@@ -3,7 +3,8 @@
     "name": "Metanet",
     "slug": "metanet-mobile",
     "version": "0.2.3",
-    "orientation": "portrait",
+    "orientation": "default",
+
     "icon": "./assets/images/icon.png",
     "scheme": "metanet",
     "userInterfaceStyle": "automatic",
@@ -76,10 +77,7 @@
               "scheme": "http"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         },
         {
           "action": "VIEW",
@@ -88,10 +86,16 @@
               "scheme": "metanet"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "uhrp"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
@@ -107,23 +111,14 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "org.bsvblockchain.metanet.urlscheme",
-            "CFBundleURLSchemes": [
-              "metanet",
-              "http",
-              "https"
-            ]
+            "CFBundleURLSchemes": ["metanet", "http", "https", "uhrp"]
           }
         ],
-        "LSApplicationQueriesSchemes": [
-          "https",
-          "http"
-        ]
+        "LSApplicationQueriesSchemes": ["https", "http", "uhrp"]
       },
       "entitlements": {
         "aps-environment": "development",
-        "com.apple.developer.associated-domains": [
-          "applinks:*"
-        ]
+        "com.apple.developer.associated-domains": ["applinks:*"]
       }
     },
     "notification": {

@@ -33,9 +33,10 @@ export class TabStore {
     }, 0)
   }
 
-  createTab(url: string = kNEW_TAB_URL): Tab {
-    console.log(`createTab(): url=${url}, tabid=${this.nextId + 1}`)
-    const safeUrl = isValidUrl(url) ? url : kNEW_TAB_URL
+  createTab(url?: string | null): Tab {
+    //console.log(`createTab(): url=${url}, tabid=${this.nextId + 1}`)
+    // Ensure url is never null or undefined
+    const safeUrl = url && isValidUrl(url) ? url : kNEW_TAB_URL
     return {
       id: this.nextId++,
       url: safeUrl,
@@ -47,15 +48,22 @@ export class TabStore {
     }
   }
 
-  newTab = (initialUrl: string = kNEW_TAB_URL) => {
+  newTab = (initialUrl?: string | null) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-    const newTab = this.createTab(initialUrl)
+    // Ensure initialUrl is never null or undefined
+    const safeInitialUrl = initialUrl || kNEW_TAB_URL
+    const newTab = this.createTab(safeInitialUrl)
     this.tabs.push(newTab)
     this.activeTabId = newTab.id
 
     // Initialize navigation history for new tab - only add valid URLs to history
-    if (initialUrl && initialUrl !== kNEW_TAB_URL && initialUrl !== 'about:blank' && isValidUrl(initialUrl)) {
-      this.tabNavigationHistories[newTab.id] = [initialUrl]
+    if (
+      safeInitialUrl &&
+      safeInitialUrl !== kNEW_TAB_URL &&
+      safeInitialUrl !== 'about:blank' &&
+      isValidUrl(safeInitialUrl)
+    ) {
+      this.tabNavigationHistories[newTab.id] = [safeInitialUrl]
       this.tabHistoryIndexes[newTab.id] = 0
     } else {
       // For new tabs with blank URLs, start with empty history
@@ -102,9 +110,12 @@ export class TabStore {
   updateTab(id: number, patch: Partial<Tab>) {
     const tab = this.tabs.find(t => t.id === id)
     if (tab) {
-      const newUrl = patch.url
-      if (newUrl && !isValidUrl(newUrl)) {
-        patch.url = kNEW_TAB_URL
+      // Handle URL updates with null safety
+      if ('url' in patch) {
+        const newUrl = patch.url
+        if (!newUrl || newUrl === null || newUrl === undefined || !isValidUrl(newUrl)) {
+          patch.url = kNEW_TAB_URL
+        }
       }
       Object.assign(tab, patch)
       this.saveTabs()
@@ -119,11 +130,13 @@ export class TabStore {
       `goBack(): tabId=${tabId}, currentIndex=${currentIndex}, history=${history?.length} items, canGoBack=${tab?.canGoBack}`
     )
 
+    //console.log(`goBack(): tabId=${tabId}, currentIndex=${currentIndex}, history=${history?.length} items, canGoBack=${tab?.canGoBack}`)
+
     if (tab && history && currentIndex > 0) {
       const newIndex = currentIndex - 1
       const url = history[newIndex]
 
-      console.log(`🔙 Going back to: ${url} (index ${newIndex})`)
+      //console.log(`🔙 Going back to: ${url} (index ${newIndex})`)
 
       this.tabHistoryIndexes[tabId] = newIndex
 
@@ -148,11 +161,13 @@ export class TabStore {
       `goForward(): tabId=${tabId}, currentIndex=${currentIndex}, history=${history?.length} items, canGoForward=${tab?.canGoForward}`
     )
 
+    //console.log(`goForward(): tabId=${tabId}, currentIndex=${currentIndex}, history=${history?.length} items, canGoForward=${tab?.canGoForward}`)
+
     if (tab && history && currentIndex < history.length - 1) {
       const newIndex = currentIndex + 1
       const url = history[newIndex]
 
-      console.log(`🔜 Going forward to: ${url} (index ${newIndex})`)
+      //console.log(`🔜 Going forward to: ${url} (index ${newIndex})`)
 
       this.tabHistoryIndexes[tabId] = newIndex
 
@@ -199,31 +214,30 @@ export class TabStore {
       return
     }
 
-    console.log(
-      `handleNavigationStateChange(): tabId=${tabId}, url=${navState.url}, webview_canGoBack=${navState.canGoBack}, webview_canGoForward=${navState.canGoForward}`
-    )
+    // console.log(`handleNavigationStateChange(): tabId=${tabId}, url=${navState.url}, webview_canGoBack=${navState.canGoBack}, webview_canGoForward=${navState.canGoForward}`)
 
-    // Always update loading state and basic tab info
+    // Always update loading state and basic tab info - ensure URL is never null
     tab.isLoading = navState.loading
-    tab.url = navState.url
-    tab.title = navState.title || navState.url
+    tab.url = navState.url || kNEW_TAB_URL // Fallback to kNEW_TAB_URL if url is null
+    tab.title = navState.title || navState.url || 'New Tab' // Fallback chain
 
     // Only update navigation state and history when navigation completes
     // and exclude about:blank URLs from history
+    const currentUrl = navState.url || kNEW_TAB_URL // Ensure we have a valid URL
     if (
       !navState.loading &&
-      navState.url &&
-      navState.url !== 'about:blank' &&
-      navState.url !== kNEW_TAB_URL &&
-      isValidUrl(navState.url)
+      currentUrl &&
+      currentUrl !== 'about:blank' &&
+      currentUrl !== kNEW_TAB_URL &&
+      isValidUrl(currentUrl)
     ) {
       const history = this.tabNavigationHistories[tabId] || []
       const currentIndex = this.tabHistoryIndexes[tabId] ?? -1
 
       // Check if this URL is already in our history at the current position
-      if (navState.url !== history[currentIndex]) {
+      if (currentUrl !== history[currentIndex]) {
         // Check if this is a back/forward navigation within our tracked history
-        const urlIndex = history.indexOf(navState.url)
+        const urlIndex = history.indexOf(currentUrl)
 
         if (urlIndex !== -1) {
           // This is back/forward navigation - update index
@@ -231,9 +245,9 @@ export class TabStore {
           this.tabHistoryIndexes[tabId] = urlIndex
         } else {
           // This is new navigation - add to history
-          console.log(`📝 Adding new URL to history: ${navState.url}`)
+          console.log(`📝 Adding new URL to history: ${currentUrl}`)
           const newHistory = currentIndex >= 0 ? history.slice(0, currentIndex + 1) : []
-          newHistory.push(navState.url)
+          newHistory.push(currentUrl)
           this.tabNavigationHistories[tabId] = newHistory
           this.tabHistoryIndexes[tabId] = newHistory.length - 1
         }
@@ -249,9 +263,7 @@ export class TabStore {
       tab.canGoBack = currentIdx > 0
       tab.canGoForward = currentIdx < currentHistory.length - 1
 
-      console.log(
-        `🧭 Navigation state: canGoBack=${tab.canGoBack}, canGoForward=${tab.canGoForward}, historyIndex=${currentIdx}/${currentHistory.length - 1}`
-      )
+      //console.log(`🧭 Navigation state: canGoBack=${tab.canGoBack}, canGoForward=${tab.canGoForward}, historyIndex=${currentIdx}/${currentHistory.length - 1}`)
 
       // Log state changes
       if (prevCanGoBack !== tab.canGoBack || prevCanGoForward !== tab.canGoForward) {
@@ -264,10 +276,27 @@ export class TabStore {
     }
   }
 
+  async clearAllTabs() {
+    console.log('clearAllTabs() called')
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    this.tabs = []
+    this.activeTabId = 1
+    this.nextId = 1
+    this.tabNavigationHistories = {}
+    this.tabHistoryIndexes = {}
+    this.saveTabs()
+
+    // Always create a new tab after clearing all tabs
+    this.newTab()
+  }
   async saveTabs() {
     if (!this.tabs) this.tabs = [] // Prevent undefined
     const serializableTabs = this.tabs.map(({ webviewRef, ...rest }) => rest)
-    await AsyncStorage.setItem('tabs', JSON.stringify(serializableTabs)).catch(console.error)
+
+    await AsyncStorage.setItem('tabs', JSON.stringify(serializableTabs))
+      .catch
+      //console.error
+      ()
   }
 
   async loadTabs() {
@@ -275,6 +304,7 @@ export class TabStore {
     if (savedTabs) {
       const parsedTabs = JSON.parse(savedTabs).map((tab: any) => ({
         ...tab,
+        url: tab.url || kNEW_TAB_URL, // Ensure URL is never null when loading
         webviewRef: createRef<WebView>()
       }))
       this.tabs = parsedTabs

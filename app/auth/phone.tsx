@@ -28,7 +28,7 @@ export default function PhoneScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false)
   const [loading, setLoading] = useState(false)
   const { managers } = useWallet()
-  const { showWeb3Benefits } = useBrowserMode()
+  const { showWeb3Benefits, setWeb2Mode } = useBrowserMode()
 
   // Get theme styles and colors
   const { colors, isDark } = useTheme()
@@ -78,6 +78,7 @@ export default function PhoneScreen() {
     showWeb3Benefits(
       // onContinue - if they still want to skip
       () => {
+        setWeb2Mode(true)
         router.replace({
           pathname: '/browser',
           params: { mode: 'web2' }
@@ -93,7 +94,7 @@ export default function PhoneScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={'padding'} style={{ flex: 1 }}>
         <View style={styles.contentContainer}>
           <Text style={styles.title}>{t('enter_phone_number')}</Text>
           <Text style={styles.subtitle}>{t('send_verification_code')}</Text>
@@ -215,7 +216,7 @@ export default function PhoneScreen() {
             onPress={handleSkipLogin}
             disabled={loading}
           >
-            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Continue without login</Text>
+            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>{t('continue_without_login')}</Text>
           </TouchableOpacity>
 
           <Text style={{ fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 10 }}>
