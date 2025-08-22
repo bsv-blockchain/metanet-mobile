@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator } from 'react-native'
 import ConfigModal from '@/components/ConfigModal'
 import { router } from 'expo-router'
@@ -36,7 +36,7 @@ export default function LoginScreen() {
   }, [])
 
   // Navigate to phone auth screen
-  const handleGetStarted = async () => {
+  const handleGetStarted = useCallback(async () => {
     try {
       await analytics().logEvent('get_started_tapped', {
         screen: 'onboarding'
@@ -53,7 +53,6 @@ export default function LoginScreen() {
         throw new Error(`Failed to fetch info: ${res.status}`)
       }
       const wabInfo = await res.json()
-      console.log({ wabInfo, selectedWabUrl, selectedMethod, selectedNetwork, selectedStorageUrl })
       const finalConfig = {
         wabUrl: selectedWabUrl,
         wabInfo,
@@ -85,7 +84,7 @@ export default function LoginScreen() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedWabUrl, selectedMethod, selectedNetwork, selectedStorageUrl, finalizeConfig, setItem, getSnap, managers?.walletManager])
 
   // Config modal state
   const [showConfig, setShowConfig] = useState(false)
@@ -102,11 +101,8 @@ export default function LoginScreen() {
   const handleConfigured = async () => {
     // After successful config, proceed with auth
     try {
-      const finalConfig = JSON.parse((await getItem('finalConfig')) || '')
-      const success = finalizeConfig(finalConfig)
-      if (!success) {
-        return
-      }
+      // The ConfigModal has already called finalizeConfig() with the new configuration
+      // No need to load from storage - the wallet context already has the updated values
       const snap = await getSnap()
       if (!snap) {
         router.push('/auth/phone')
@@ -205,6 +201,12 @@ export default function LoginScreen() {
           </>
         )}
       </View>
+      
+      <ConfigModal
+        visible={showConfig}
+        onDismiss={handleConfigDismiss}
+        onConfigured={handleConfigured}
+      />
     </SafeAreaView>
   )
 }

@@ -742,7 +742,7 @@ export const WalletContextProvider: React.FC<WalletContextProps> = ({ children =
     passwordRetriever,
     recoveryKeySaver,
     configStatus,
-    managers.walletManager,
+    walletBuilt,
     selectedNetwork,
     selectedWabUrl,
     buildWallet,
