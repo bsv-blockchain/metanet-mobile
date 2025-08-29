@@ -30,8 +30,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>metanet</string>
-          <string>http</string>
-          <string>https</string>
+          <string>uhrp</string>
         </array>
       </dict>
       <dict>
@@ -49,6 +48,7 @@
     <array>
       <string>https</string>
       <string>http</string>
+      <string>uhrp</string>
     </array>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
@@ -65,6 +65,8 @@
     <string>This app needs camera access to scan QR codes.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>This app uses Face ID/Touch ID to securely authenticate you and protect your wallet.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Metanet may request your location to enable features like discovering nearby devices/services and providing region-specific functionality. Your location is only used while the app is in use.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>This app needs microphone access for video recording features.</string>
     <key>NSPhotoLibraryUsageDescription</key>

@@ -40,7 +40,7 @@ import { observer } from 'mobx-react-lite'
 import { router } from 'expo-router'
 
 import { useTheme } from '@/context/theme/ThemeContext'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 import { WalletInterface } from '@bsv/sdk'
 import { RecommendedApps } from '@/components/RecommendedApps'
 import { useLocalStorage } from '@/context/LocalStorageProvider'
@@ -782,7 +782,7 @@ function Browser() {
       this.icon = options.icon || '';
       this.tag = options.tag || '';
       this.data = options.data || null;
-      
+
       // Send notification to native
       window.ReactNativeWebView?.postMessage(JSON.stringify({
         type: 'SHOW_NOTIFICATION',
@@ -792,7 +792,7 @@ function Browser() {
         tag: this.tag,
         data: this.data
       }));
-      
+
       return this;
     };
 
@@ -803,7 +803,7 @@ function Browser() {
           type: 'REQUEST_NOTIFICATION_PERMISSION',
           callback: true
         }));
-        
+
         // Listen for response
         const handler = (event) => {
           try {
@@ -834,7 +834,7 @@ function Browser() {
                     type: 'PUSH_SUBSCRIBE',
                     options: options
                   }));
-                  
+
                   const handler = (event) => {
                     try {
                       const data = JSON.parse(event.data);
@@ -852,7 +852,7 @@ function Browser() {
                   window.ReactNativeWebView?.postMessage(JSON.stringify({
                     type: 'GET_PUSH_SUBSCRIPTION'
                   }));
-                  
+
                   const handler = (event) => {
                     try {
                       const data = JSON.parse(event.data);
@@ -878,7 +878,7 @@ function Browser() {
           window.ReactNativeWebView?.postMessage(JSON.stringify({
             type: 'REQUEST_FULLSCREEN'
           }));
-          
+
           const handler = (event) => {
             try {
               const data = JSON.parse(event.data);
@@ -903,7 +903,7 @@ function Browser() {
           window.ReactNativeWebView?.postMessage(JSON.stringify({
             type: 'EXIT_FULLSCREEN'
           }));
-          
+
           const handler = (event) => {
             try {
               const data = JSON.parse(event.data);
@@ -999,32 +999,32 @@ function Browser() {
     window.fetch = function(input, init = {}) {
       // Get current language header from React Native
       const acceptLanguage = '${getAcceptLanguageHeader()}';
-      
+
       // Merge headers
       const headers = new Headers(init.headers);
       if (!headers.has('Accept-Language')) {
         headers.set('Accept-Language', acceptLanguage);
       }
-      
+
       // Update init with new headers
       const newInit = {
         ...init,
         headers: headers
       };
-      
+
       return originalFetch.call(this, input, newInit);
     };
 
     // Also intercept XMLHttpRequest for older APIs
     const originalXHROpen = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
-    
+
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
       this._method = method;
       this._url = url;
       return originalXHROpen.call(this, method, url, async, user, password);
     };
-    
+
     XMLHttpRequest.prototype.send = function(data) {
       // Add Accept-Language header if not already set
       if (!this.getRequestHeader('Accept-Language')) {
@@ -1842,7 +1842,7 @@ function Browser() {
               >
                 <Ionicons name="arrow-back" size={26} color={!isBackDisabled ? colors.textPrimary : '#cccccc'} />
               </TouchableOpacity>}
-              
+
               {activeTab?.canGoForward && <TouchableOpacity
                 style={styles.addressBarForwardButton}
                 disabled={isForwardDisabled}
@@ -1861,7 +1861,7 @@ function Browser() {
                 <Ionicons name="arrow-forward" size={26} color={!isForwardDisabled ? colors.textPrimary : '#cccccc'} />
               </TouchableOpacity>}
 
-              {/* deggen: I think we need to focus on usability and this icon has no function, it should be in the URL bar or something, not here looking like a button. 
+              {/* deggen: I think we need to focus on usability and this icon has no function, it should be in the URL bar or something, not here looking like a button.
               {!addressFocused && !activeTab?.isLoading && activeTab?.url.startsWith('https') && (
                 <Ionicons name="lock-closed" size={16} color={colors.textSecondary} style={styles.padlock} />
               )} */}

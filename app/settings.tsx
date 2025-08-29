@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useTheme, ThemeMode } from '@/context/theme/ThemeContext'
 import { useThemeStyles } from '@/context/theme/useThemeStyles'
 import { Ionicons } from '@expo/vector-icons'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 
 export default function SettingsScreen() {
   const { t } = useTranslation()
