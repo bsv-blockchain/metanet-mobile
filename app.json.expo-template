@@ -108,11 +108,7 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "org.bsvblockchain.metanet.urlscheme",
-            "CFBundleURLSchemes": [
-              "metanet",
-              "http",
-              "https"
-            ]
+            "CFBundleURLSchemes": ["metanet"]
           }
         ],
         "LSApplicationQueriesSchemes": [

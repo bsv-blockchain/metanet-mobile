@@ -13,7 +13,7 @@ import {
   Alert
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 import { useTheme } from '@/context/theme/ThemeContext'
 import { useThemeStyles } from '@/context/theme/useThemeStyles'
 
@@ -39,14 +39,9 @@ const PasswordHandler: React.FC = () => {
   const [wasOriginallyFocused, setWasOriginallyFocused] = useState<boolean>(false)
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
-  const [test, setTest] = useState<Function>(() => {
-    return Promise.resolve(true)
-  })
-  const [resolve, setResolve] = useState<Function>(() => {})
-  const [reject, setReject] = useState<Function>(() => {})
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const { setPasswordRetriever } = useWallet()
+  const { webviewComingEvent, sendWebViewEvent } = useWallet()
 
   const manageFocus = useCallback(() => {
     focusHandler.isFocused().then(focused => {
@@ -57,40 +52,30 @@ const PasswordHandler: React.FC = () => {
     })
   }, [focusHandler])
 
-  // Define a dummy function for initialization
-  const dummyPasswordHandler = useCallback((reason: string, test: (pwd: string) => boolean): Promise<string> => {
-    console.warn('Password handler called before initialization')
-    return Promise.resolve('')
-  }, [])
-
-  // Create a ref to store the handler function
-  const handlerRef = useRef(dummyPasswordHandler)
-
-  // Set up the actual handler function
   useEffect(() => {
-    handlerRef.current = (reason: string, testFn: (passwordCandidate: string) => boolean): Promise<string> => {
-      return new Promise<string>((resolvePromise: Function, rejectPromise: Function) => {
-        setReason(reason)
-        setTest(() => testFn)
-        setResolve(() => resolvePromise)
-        setReject(() => rejectPromise)
-        setOpen(true)
-        manageFocus()
-      })
-    }
-  }, [manageFocus])
+    // Handle incoming events from the webview
+    if (webviewComingEvent) {
+      const { name, results } = webviewComingEvent;
 
-  // Register the handler exactly once on mount
-  useEffect(() => {
-    // Provide a stable reference that delegates to our ref
-    const stableHandler = (): any => {
-      return (reason: string, test: (passwordCandidate: string) => boolean): Promise<string> => {
-        return handlerRef.current(reason, test)
+      switch (name) {
+        case 'passwordRetriever.completed':
+          // setPasswordRetriver webview callback
+          setReason(results)
+          setOpen(true)
+          manageFocus()
+          break;
+        case 'testPassword.completed':
+        // Check password test success
+          if (results) {
+            sendWebViewEvent('testPasswordResolve')
+            handleClose()
+          } else {
+            Alert.alert('Error', 'Password validation failed')
+          }
+          break;
       }
     }
-
-    setPasswordRetriever(stableHandler)
-  }, [])
+  }, [webviewComingEvent])
 
   const handleClose = useCallback(() => {
     setOpen(false)
@@ -103,23 +88,15 @@ const PasswordHandler: React.FC = () => {
   }, [focusHandler, wasOriginallyFocused])
 
   const handleCancel = useCallback(() => {
-    reject(new Error('User cancelled'))
+    // Send the password rejected event
+    sendWebViewEvent('testPasswordReject', 'User cancelled')
     handleClose()
-  }, [handleClose, reject])
+  }, [handleClose])
 
   const handleSubmit = useCallback(async () => {
-    try {
-      const success = await test(password)
-      if (success) {
-        resolve(password)
-        handleClose()
-      } else {
-        Alert.alert('Error', 'Password validation failed')
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Password validation failed')
-    }
-  }, [handleClose, password, resolve, test])
+    // Send the password to the webview
+    sendWebViewEvent('testPassword', password)
+  }, [handleClose, password])
 
   const toggleShowPassword = () => {
     setShowPassword(!showPassword)

@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import Fuse from 'fuse.js'
 import { useTheme } from '@/context/theme/ThemeContext'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 import { useBrowserMode } from '@/context/BrowserModeContext'
 import { useTranslation } from 'react-i18next'
 import bookmarkStore from '@/stores/BookmarkStore'

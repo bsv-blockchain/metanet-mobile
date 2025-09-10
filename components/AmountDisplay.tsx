@@ -3,7 +3,7 @@ import { Text, TouchableOpacity, View, StyleSheet, Modal } from 'react-native'
 import { formatSatoshis, formatSatoshisAsFiat, satoshisOptions } from '@/utils/amountFormatHelpers'
 import { ExchangeRateContext } from '@/context/ExchangeRateContext'
 import { useTheme } from '@/context/theme/ThemeContext'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 
 type Props = {
   abbreviate?: boolean

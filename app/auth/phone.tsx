@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { StatusBar } from 'expo-status-bar'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '@/context/theme/ThemeContext'
 import { useThemeStyles } from '@/context/theme/useThemeStyles'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 import { useBrowserMode } from '@/context/BrowserModeContext'
 import { countryCodes } from '@/utils/countryCodes'
 
@@ -27,7 +27,7 @@ export default function PhoneScreen() {
   const [selectedCountry, setSelectedCountry] = useState(countryCodes[222])
   const [showCountryPicker, setShowCountryPicker] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { managers } = useWallet()
+  const { webviewComingEvent, sendWebViewEvent } = useWallet()
   const { showWeb3Benefits } = useBrowserMode()
 
   // Get theme styles and colors
@@ -54,23 +54,8 @@ export default function PhoneScreen() {
 
     setLoading(true)
 
-    try {
-      await managers!.walletManager!.startAuth({
-        phoneNumber: formattedNumber
-      })
-
-      // Navigate to OTP screen
-      router.push({
-        pathname: '/auth/otp',
-        params: { phoneNumber: formattedNumber }
-      })
-    } catch (error) {
-      console.error('Error sending OTP:', error)
-      // Show error message to user
-    } finally {
-      setLoading(false)
-    }
-  }, [managers?.walletManager, formattedNumber])
+    sendWebViewEvent('startAuth', formattedNumber);
+  }, [formattedNumber])
 
   // Handle skip login for web2 mode
   const handleSkipLogin = useCallback(() => {
@@ -89,6 +74,29 @@ export default function PhoneScreen() {
       }
     )
   }, [showWeb3Benefits])
+
+  useEffect(() => {
+    // Handle incoming events from the webview
+    if (webviewComingEvent) {
+      const { name, results } = webviewComingEvent;
+
+      switch (name) {
+        case 'startAuth.callback':
+          setLoading(false);
+
+          if (results) {
+            // Navigate to OTP screen
+            router.push({
+              pathname: '/auth/otp',
+              params: { phoneNumber: formattedNumber }
+            });
+          } else {
+            console.error('Error sending OTP:');
+          }
+          break
+      }
+    }
+  }, [webviewComingEvent])
 
   return (
     <SafeAreaView style={styles.container}>

@@ -38,7 +38,7 @@ import { observer } from 'mobx-react-lite'
 import { router } from 'expo-router'
 
 import { useTheme } from '@/context/theme/ThemeContext'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 import { WalletInterface } from '@bsv/sdk'
 import { RecommendedApps } from '@/components/RecommendedApps'
 import { useLocalStorage } from '@/context/LocalStorageProvider'
@@ -766,9 +766,9 @@ function Browser() {
   // Camera access polyfill - provides mock streams to prevent WKWebView camera access
   (function() {
     if (!navigator.mediaDevices) return;
-    
+
     const originalGetUserMedia = navigator.mediaDevices.getUserMedia?.bind(navigator.mediaDevices);
-    
+
     function createMockMediaStream() {
       const mockTrack = {
         id: 'mock-video-' + Date.now(),
@@ -782,7 +782,7 @@ function Browser() {
         removeEventListener() {},
         getSettings: () => ({ width: 640, height: 480, frameRate: 30 })
       };
-      
+
       return {
         id: 'mock-stream-' + Date.now(),
         active: true,
@@ -793,25 +793,25 @@ function Browser() {
         removeEventListener() {}
       };
     }
-    
+
     navigator.mediaDevices.getUserMedia = function(constraints) {
-      const hasVideo = constraints?.video === true || 
+      const hasVideo = constraints?.video === true ||
         (typeof constraints?.video === 'object' && constraints.video);
-      
+
       if (hasVideo) {
         // Notify React Native of camera request
         window.ReactNativeWebView?.postMessage(JSON.stringify({
           type: 'CAMERA_REQUEST',
           constraints
         }));
-        
+
         // Return mock stream immediately to prevent native camera
         return Promise.resolve(createMockMediaStream());
       }
-      
+
       // Allow audio-only requests through original implementation
-      return originalGetUserMedia ? 
-        originalGetUserMedia(constraints) : 
+      return originalGetUserMedia ?
+        originalGetUserMedia(constraints) :
         Promise.reject(new Error('Media not supported'));
     };
   })();
@@ -834,7 +834,7 @@ function Browser() {
       this.icon = options.icon || '';
       this.tag = options.tag || '';
       this.data = options.data || null;
-      
+
       // Send notification to native
       window.ReactNativeWebView?.postMessage(JSON.stringify({
         type: 'SHOW_NOTIFICATION',
@@ -844,7 +844,7 @@ function Browser() {
         tag: this.tag,
         data: this.data
       }));
-      
+
       return this;
     };
 
@@ -855,7 +855,7 @@ function Browser() {
           type: 'REQUEST_NOTIFICATION_PERMISSION',
           callback: true
         }));
-        
+
         // Listen for response
         const handler = (event) => {
           try {
@@ -886,7 +886,7 @@ function Browser() {
                     type: 'PUSH_SUBSCRIBE',
                     options: options
                   }));
-                  
+
                   const handler = (event) => {
                     try {
                       const data = JSON.parse(event.data);
@@ -904,7 +904,7 @@ function Browser() {
                   window.ReactNativeWebView?.postMessage(JSON.stringify({
                     type: 'GET_PUSH_SUBSCRIPTION'
                   }));
-                  
+
                   const handler = (event) => {
                     try {
                       const data = JSON.parse(event.data);
@@ -930,7 +930,7 @@ function Browser() {
           window.ReactNativeWebView?.postMessage(JSON.stringify({
             type: 'REQUEST_FULLSCREEN'
           }));
-          
+
           const handler = (event) => {
             try {
               const data = JSON.parse(event.data);
@@ -955,7 +955,7 @@ function Browser() {
           window.ReactNativeWebView?.postMessage(JSON.stringify({
             type: 'EXIT_FULLSCREEN'
           }));
-          
+
           const handler = (event) => {
             try {
               const data = JSON.parse(event.data);
@@ -998,15 +998,15 @@ function Browser() {
     if (navigator.mediaDevices) {
       // Store original for potential fallback, but never use it for video
       const originalGetUserMedia = navigator.mediaDevices.getUserMedia?.bind(navigator.mediaDevices);
-      
+
       // Completely override getUserMedia - never call original for video constraints
       navigator.mediaDevices.getUserMedia = function(constraints) {
         console.log('[WebView] getUserMedia intercepted:', constraints);
-        
+
         // Check if requesting video - if so, handle in React Native
-        const hasVideo = constraints && (constraints.video === true || 
+        const hasVideo = constraints && (constraints.video === true ||
           (typeof constraints.video === 'object' && constraints.video !== false));
-        
+
         if (hasVideo) {
           console.log('[WebView] Video requested - handling in React Native');
           // Send request to native - handle camera completely in React Native
@@ -1014,7 +1014,7 @@ function Browser() {
             type: 'CAMERA_REQUEST',
             constraints: constraints
           }));
-          
+
           return new Promise((resolve, reject) => {
             const handler = (event) => {
               try {
@@ -1038,7 +1038,7 @@ function Browser() {
                       getCapabilities: () => ({ width: { min: 320, max: 1920 }, height: { min: 240, max: 1080 } }),
                       getConstraints: () => constraints.video || {}
                     };
-                    
+
                     const mockStream = {
                       id: 'mock-stream-' + Date.now(),
                       active: true,
@@ -1063,7 +1063,7 @@ function Browser() {
               }
             };
             window.addEventListener('message', handler);
-            
+
             // Timeout after 10 seconds
             setTimeout(() => {
               window.removeEventListener('message', handler);
@@ -1073,14 +1073,14 @@ function Browser() {
         } else if (constraints && constraints.audio && !hasVideo) {
           // Audio-only requests can use original implementation
           console.log('[WebView] Audio-only request - using original getUserMedia');
-          return originalGetUserMedia ? originalGetUserMedia(constraints) : 
+          return originalGetUserMedia ? originalGetUserMedia(constraints) :
             Promise.reject(new Error('Audio not supported'));
         } else {
           // No media requested
           return Promise.reject(new Error('No media constraints specified'));
         }
       };
-      
+
       // Also override the deprecated navigator.getUserMedia if it exists
       if (navigator.getUserMedia) {
         navigator.getUserMedia = function(constraints, success, error) {
@@ -1148,32 +1148,32 @@ function Browser() {
     window.fetch = function(input, init = {}) {
       // Get current language header from React Native
       const acceptLanguage = '${getAcceptLanguageHeader()}';
-      
+
       // Merge headers
       const headers = new Headers(init.headers);
       if (!headers.has('Accept-Language')) {
         headers.set('Accept-Language', acceptLanguage);
       }
-      
+
       // Update init with new headers
       const newInit = {
         ...init,
         headers: headers
       };
-      
+
       return originalFetch.call(this, input, newInit);
     };
 
     // Also intercept XMLHttpRequest for older APIs
     const originalXHROpen = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
-    
+
     XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
       this._method = method;
       this._url = url;
       return originalXHROpen.call(this, method, url, async, user, password);
     };
-    
+
     XMLHttpRequest.prototype.send = function(data) {
       // Add Accept-Language header if not already set
       if (!this.getRequestHeader('Accept-Language')) {
@@ -2080,7 +2080,7 @@ function Browser() {
                 <Ionicons name="arrow-forward" size={26} color={!isForwardDisabled ? colors.textPrimary : '#cccccc'} />
               </TouchableOpacity>}
 
-              {/* deggen: I think we need to focus on usability and this icon has no function, it should be in the URL bar or something, not here looking like a button. 
+              {/* deggen: I think we need to focus on usability and this icon has no function, it should be in the URL bar or something, not here looking like a button.
               {!addressFocused && !activeTab?.isLoading && activeTab?.url.startsWith('https') && (
                 <Ionicons name="lock-closed" size={16} color={colors.textSecondary} style={styles.padlock} />
               )} */}

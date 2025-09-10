@@ -78,7 +78,10 @@
               "scheme": "http"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         },
         {
           "action": "VIEW",
@@ -87,7 +90,10 @@
               "scheme": "metanet"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -103,15 +109,24 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "org.bsvblockchain.metanet.urlscheme",
-            "CFBundleURLSchemes": ["metanet"]
+            "CFBundleURLSchemes": [
+              "metanet",
+              "uhrp"
+            ]
           }
         ],
-        "LSApplicationQueriesSchemes": ["https", "http"],
+        "LSApplicationQueriesSchemes": [
+          "https",
+          "http",
+          "uhrp"
+        ],
         "NSLocationWhenInUseUsageDescription": "Metanet may request your location to enable features like discovering nearby devices/services and providing region-specific functionality. Your location is only used while the app is in use."
       },
       "entitlements": {
         "aps-environment": "development",
-        "com.apple.developer.associated-domains": ["applinks:*"],
+        "com.apple.developer.associated-domains": [
+          "applinks:*"
+        ],
         "com.apple.developer.web-browser": true
       }
     },

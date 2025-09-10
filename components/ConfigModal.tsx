@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '@/context/theme/ThemeContext'
 import { useThemeStyles } from '@/context/theme/useThemeStyles'
-import { useWallet, WABConfig } from '@/context/WalletContext'
+import { useWallet, WABConfig } from '@/context/WalletWebViewContext'
 
 interface ConfigModalProps {
   visible: boolean

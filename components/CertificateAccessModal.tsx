@@ -1,6 +1,6 @@
 import React, { useContext } from 'react'
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native'
-import { WalletContext } from '../context/WalletContext'
+import { WalletContext } from '../context/WalletWebViewContext'
 import { UserContext } from '../context/UserContext'
 import { useThemeStyles } from '../context/theme/useThemeStyles'
 import AppChip from './AppChip'

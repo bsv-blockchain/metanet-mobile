@@ -16,7 +16,7 @@ import {
 import * as Clipboard from 'expo-clipboard'
 import { Ionicons } from '@expo/vector-icons'
 import { Utils } from '@bsv/sdk'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 import { useTheme } from '@/context/theme/ThemeContext'
 import { useThemeStyles } from '@/context/theme/useThemeStyles'
 
@@ -27,10 +27,7 @@ const RecoveryKeySaver = () => {
 
   // State management
   const [open, setOpen] = useState(false)
-  const [wasOriginallyFocused, setWasOriginallyFocused] = useState<boolean>(false)
   const [recoveryKey, setRecoveryKey] = useState('')
-  const [resolve, setResolve] = useState<Function>(() => {})
-  const [reject, setReject] = useState<Function>(() => {})
   const [copied, setCopied] = useState(false)
 
   // Checkbox states
@@ -38,33 +35,24 @@ const RecoveryKeySaver = () => {
   const [affirmative2, setAffirmative2] = useState(false)
   const [affirmative3, setAffirmative3] = useState(false)
 
-  const { managers, setRecoveryKeySaver } = useWallet()
+  const { webviewComingEvent, sendWebViewEvent } = useWallet()
 
   const isAllChecked = affirmative1 && affirmative2 && affirmative3
 
-  // Define a dummy function for initialization
-  const dummyHandler = useCallback((key: number[]): Promise<true> => {
-    console.warn('Recovery key handler called before initialization')
-    return Promise.resolve(true)
-  }, [])
-
   useEffect(() => {
-    setRecoveryKeySaver((): any => {
-      return (key: number[]): Promise<true> => {
-        return new Promise((resolve, reject) => {
-          const keyAsStr = Utils.toBase64(key)
-          setResolve(() => {
-            return resolve
-          })
-          setReject(() => {
-            return reject
-          })
-          setRecoveryKey(keyAsStr)
+    // Handle incoming events from the webview
+    if (webviewComingEvent) {
+      const { name, results } = webviewComingEvent;
+
+      switch (name) {
+        case 'recoveryKey.completed':
+          // setPasswordRetriver webview callback
+          setRecoveryKey(results)
           setOpen(true)
-        })
+          break;
       }
-    })
-  }, [managers])
+    }
+  }, [webviewComingEvent])
 
   const handleClose = () => {
     setOpen(false)
@@ -75,12 +63,12 @@ const RecoveryKeySaver = () => {
   }
 
   const onAbandon = () => {
-    reject(new Error('User abandoned recovery key'))
+    sendWebViewEvent('recoveryKeyReject', 'User abandoned recovery key')
     handleClose()
   }
 
   const onKeySaved = () => {
-    resolve(true)
+    sendWebViewEvent('recoveryKeyResolve', true)
     handleClose()
   }
 

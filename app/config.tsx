@@ -16,7 +16,7 @@ import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '@/context/theme/ThemeContext'
 import { useThemeStyles } from '@/context/theme/useThemeStyles'
-import { WalletContext, WABConfig } from '@/context/WalletContext'
+import { WalletContext, WABConfig } from '@/context/WalletWebViewContext'
 import { DEFAULT_WAB_URL, DEFAULT_STORAGE_URL } from '@/context/config'
 
 // Define types for config

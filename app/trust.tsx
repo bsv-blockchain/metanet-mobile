@@ -24,7 +24,7 @@ import { useTheme } from '@/context/theme/ThemeContext'
 
 // SETTINGS CONTEXT (same semantics as web app)
 // NOTE: adjust the import path if your WalletContext lives elsewhere
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 
 // VALIDATION util (mirrors your web validateTrust utility)
 // NOTE: adjust path if different in mobile project

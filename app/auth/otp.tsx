@@ -16,7 +16,7 @@ import { StatusBar } from 'expo-status-bar'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '@/context/theme/ThemeContext'
 import { useThemeStyles } from '@/context/theme/useThemeStyles'
-import { useWallet } from '@/context/WalletContext'
+import { useWallet } from '@/context/WalletWebViewContext'
 
 export default function OtpScreen() {
   const { t } = useTranslation()
@@ -24,7 +24,7 @@ export default function OtpScreen() {
   const { colors, isDark } = useTheme()
   const themeStyles = useThemeStyles()
 
-  const { managers } = useWallet()
+  const { webviewComingEvent, sendWebViewEvent } = useWallet()
   const params = useLocalSearchParams()
   const phoneNumber = params.phoneNumber as string
 
@@ -52,6 +52,43 @@ export default function OtpScreen() {
     return () => clearInterval(timer)
   }, [])
 
+  useEffect(() => {
+    // Handle incoming events from the webview
+    if (webviewComingEvent) {
+      const { name, results } = webviewComingEvent;
+
+      switch (name) {
+        case 'restartAuth.callback': // startAuth webview callback
+          setLoading(false);
+
+          if (results) {
+            setCountdown(60)
+            setCanResend(false)
+
+            Alert.alert(t('code_sent'), t('new_verification_code_sent'))
+          } else {
+            console.error('Error resending OTP:')
+            Alert.alert(t('error'), t('failed_to_resend'))
+          }
+          break;
+        case 'completeAuth.callback': // completeAuth webview callback
+          setLoading(false)
+
+          if (results) {
+            // Navigate to password screen after OTP verification
+            router.push({
+              pathname: '/auth/password',
+              params: { phoneNumber: phoneNumber }
+            });
+          } else {
+            console.error('Error verifying OTP:')
+            Alert.alert(t('verification_failed'), t('code_incorrect_try_again'))
+          }
+          break;
+      }
+    }
+  }, [webviewComingEvent])
+
   // Handle OTP verification
   const handleVerify = useCallback(
     async (otp: string) => {
@@ -60,25 +97,9 @@ export default function OtpScreen() {
 
       setLoading(true)
 
-      try {
-        await managers!.walletManager!.completeAuth({
-          phoneNumber,
-          otp
-        })
-
-        // Navigate to password screen after OTP verification
-        router.push({
-          pathname: '/auth/password',
-          params: { phoneNumber: phoneNumber }
-        })
-      } catch (error) {
-        console.error('Error verifying OTP:', error)
-        Alert.alert(t('verification_failed'), t('code_incorrect_try_again'))
-      } finally {
-        setLoading(false)
-      }
+      sendWebViewEvent('completeAuth', { phoneNumber, otp});
     },
-    [otp, managers, phoneNumber]
+    [otp, phoneNumber]
   )
 
   // Handle resend OTP
@@ -87,21 +108,8 @@ export default function OtpScreen() {
 
     setLoading(true)
 
-    try {
-      await managers!.walletManager!.startAuth({ phoneNumber })
-
-      // Reset countdown
-      setCountdown(60)
-      setCanResend(false)
-
-      Alert.alert(t('code_sent'), t('new_verification_code_sent'))
-    } catch (error) {
-      console.error('Error resending OTP:', error)
-      Alert.alert(t('error'), t('failed_to_resend'))
-    } finally {
-      setLoading(false)
-    }
-  }, [canResend, managers, phoneNumber])
+    sendWebViewEvent('restartAuth', phoneNumber);
+  }, [canResend, phoneNumber])
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

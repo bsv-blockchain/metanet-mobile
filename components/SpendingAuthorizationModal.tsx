@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react'
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native'
-import { WalletContext } from '../context/WalletContext'
+import { WalletContext } from '../context/WalletWebViewContext'
 import { UserContext } from '../context/UserContext'
 import { useThemeStyles } from '../context/theme/useThemeStyles'
 import { useTheme } from '../context/theme/ThemeContext'
