@@ -237,8 +237,8 @@ const resources = {
       // Configuration
       configuration: 'Configuration',
       save: 'Save',
-      wallet_auth_backend: 'Wallet Authentication Backend (WAB)',
-      wab_description: 'Provides 2 of 3 backup and recovery functionality for your root key.',
+      wallet_auth_backend: 'Wallet Authentication Backend',
+      wab_description: 'Provides 2 of 3 backup and recovery functionality for your root key. Service will store your phone number and associate it with a presentation key.',
       wab_url: 'WAB URL',
       enter_wab_url: 'Enter WAB URL',
       refresh_info: 'Refresh Info',
@@ -279,10 +279,10 @@ const resources = {
 
       // Auth - Phone
       enter_phone_number: 'Enter your phone number',
-      send_verification_code: "We'll send you a verification code",
+      send_verification_code: "for verification",
       phone_number: 'Phone number',
       select_country: 'Select Country',
-      terms_privacy_agree: 'By continuing, you agree to our Terms of Service and Privacy Policy',
+      terms_privacy_agree: 'By pressing "Continue" you agree to send your phone number to the configured WAB, which provides 2 of 3 backup and recovery functionality for your root key. WAB will store your phone number and associate it with a presentation key for retrieval on your request. Please contact your WAB provider for further details or service requests.',
 
       continue_without_login: 'Continue without login',
 
@@ -304,7 +304,7 @@ const resources = {
       metanet: 'BSV Browser',
       browser_with_identity_payments: 'With identity and payments built in',
       get_started: 'Get Started',
-      terms_privacy_agreement: 'By continuing, you agree to our Terms of Service and Privacy Policy',
+      terms_privacy_agreement: 'By selecting "Get Started Now", you agree to the Terms of Service and Privacy Policy of the configured providers.',
 
       configure_providers: 'Configure Providers',
 
@@ -512,7 +512,7 @@ const resources = {
       send_verification_code: '我们将向您发送验证码',
       phone_number: '电话号码',
       select_country: '选择国家',
-      terms_privacy_agree: '继续即表示您同意我们的服务条款和隐私政策',
+      terms_privacy_agree: '按下"继续"即表示您同意将您的电话号码发送给已配置的WAB，WAB为您的根密钥提供2/3备份和恢复功能。WAB将存储您的电话号码并将其与演示密钥关联，以便在您请求时检索。如需更多详细信息或服务请求，请联系您的WAB提供商。',
 
       continue_without_login: '不登录继续',
 
@@ -534,7 +534,7 @@ const resources = {
       metanet: 'BSV Browser',
       browser_with_identity_payments: '内置身份和支付功能的浏览器',
       get_started: '开始使用',
-      terms_privacy_agreement: '继续即表示您同意我们的服务条款和隐私政策',
+      terms_privacy_agreement: '选择"立即开始"即表示您同意已配置提供商的服务条款和隐私政策。',
 
       configure_providers: '配置提供商',
 
@@ -753,14 +753,14 @@ const resources = {
       invalid_phone_number: 'अमान्य फोन नंबर',
 
       select_country: 'देश चुनें',
-      terms_privacy_agree: 'जारी रखकर, आप हमारी सेवा की शर्तों और गोपनीयता नीति से सहमत हैं',
+      terms_privacy_agree: '"जारी रखें" दबाकर आप अपना फोन नंबर कॉन्फ़िगर किए गए WAB को भेजने के लिए सहमत होते हैं, जो आपकी रूट कुंजी के लिए 2/3 बैकअप और रिकवरी कार्यक्षमता प्रदान करता है। WAB आपका फोन नंबर स्टोर करेगा और इसे आपके अनुरोध पर पुनर्प्राप्ति के लिए एक प्रेजेंटेशन कुंजी के साथ जोड़ेगा। अधिक विवरण या सेवा अनुरोधों के लिए कृपया अपने WAB प्रदाता से संपर्क करें।',
       continue_without_login: 'बिना लॉगिन के जारी रखें',
 
       // Login/Welcome Screen
       metanet: 'BSV Browser',
       browser_with_identity_payments: 'पहचान और भुगतान सुविधा के साथ ब्राउज़र',
       get_started: 'शुरू करें',
-      terms_privacy_agreement: 'जारी रखकर, आप हमारी सेवा की शर्तों और गोपनीयता नीति से सहमत हैं',
+      terms_privacy_agreement: '"अभी शुरू करें" का चयन करके, आप कॉन्फ़िगर किए गए प्रदाताओं की सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं।',
 
       configure_providers: 'प्रदाता कॉन्फ़िगर करें',
 
@@ -923,14 +923,14 @@ const resources = {
       send_verification_code: 'Te enviaremos un código de verificación',
       phone_number: 'Número de teléfono',
       select_country: 'Seleccionar País',
-      terms_privacy_agree: 'Al continuar, aceptas nuestros Términos de Servicio y Política de Privacidad',
+      terms_privacy_agree: 'Al presionar "Continuar" aceptas enviar tu número de teléfono al WAB configurado, que proporciona funcionalidad de respaldo y recuperación 2 de 3 para tu clave raíz. WAB almacenará tu número de teléfono y lo asociará con una clave de presentación para su recuperación bajo tu solicitud. Por favor contacta a tu proveedor WAB para más detalles o solicitudes de servicio.',
       continue_without_login: 'Continuar sin iniciar sesión',
 
       // Login/Welcome Screen
       metanet: 'BSV Browser',
       browser_with_identity_payments: 'Navegador con identidad y pagos integrados',
       get_started: 'Comenzar',
-      terms_privacy_agreement: 'Al continuar, aceptas nuestros Términos de Servicio y Política de Privacidad',
+      terms_privacy_agreement: 'Al seleccionar "Comenzar Ahora", aceptas los Términos de Servicio y la Política de Privacidad de los proveedores configurados.',
 
       configure_providers: 'Configurar Proveedores',
 
@@ -1109,8 +1109,7 @@ const resources = {
       send_verification_code: 'Envoyer le Code de Vérification',
       invalid_phone_number: 'Numéro de téléphone invalide',
       select_country: 'Sélectionner le Pays',
-      terms_privacy_agree:
-        'En continuant, vous acceptez nos Conditions de Service et notre Politique de Confidentialité',
+      terms_privacy_agree: 'En appuyant sur "Continuer", vous acceptez d\'envoyer votre numéro de téléphone au WAB configuré, qui fournit une fonctionnalité de sauvegarde et de récupération 2 sur 3 pour votre clé racine. WAB stockera votre numéro de téléphone et l\'associera à une clé de présentation pour récupération sur votre demande. Veuillez contacter votre fournisseur WAB pour plus de détails ou demandes de service.',
       continue_without_login: 'Continuer sans se connecter',
 
       // Login/Welcome Screen
@@ -1118,8 +1117,7 @@ const resources = {
       browser_with_identity_payments: 'Navigateur avec identité et paiements intégrés',
       get_started: 'Commencer',
 
-      terms_privacy_agreement:
-        'En continuant, vous acceptez nos Conditions de Service et notre Politique de Confidentialité',
+      terms_privacy_agreement: 'En sélectionnant "Commencer Maintenant", vous acceptez les Conditions de Service et la Politique de Confidentialité des fournisseurs configurés.',
       configure_providers: 'Configurer les Fournisseurs',
 
       // Web3 Benefits Modal
@@ -1291,14 +1289,14 @@ const resources = {
       invalid_phone_number: 'رقم هاتف غير صالح',
 
       select_country: 'اختر البلد',
-      terms_privacy_agree: 'من خلال المتابعة، فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بنا',
+      terms_privacy_agree: 'بالضغط على "متابعة" فإنك توافق على إرسال رقم هاتفك إلى WAB المكون، والذي يوفر وظيفة النسخ الاحتياطي والاستعادة 2 من 3 لمفتاحك الجذر. سيقوم WAB بتخزين رقم هاتفك وربطه بمفتاح العرض لاستعادته عند طلبك. يرجى الاتصال بمزود WAB الخاص بك لمزيد من التفاصيل أو طلبات الخدمة.',
       continue_without_login: 'المتابعة بدون تسجيل الدخول',
 
       // Login/Welcome Screen
       metanet: 'BSV Browser',
       browser_with_identity_payments: 'متصفح مع الهوية والمدفوعات المدمجة',
       get_started: 'ابدأ',
-      terms_privacy_agreement: 'من خلال المتابعة، فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بنا',
+      terms_privacy_agreement: 'من خلال اختيار "ابدأ الآن"، فإنك توافق على شروط الخدمة وسياسة الخصوصية الخاصة بمقدمي الخدمة المكونين.',
 
       configure_providers: 'تكوين موفري الخدمة',
 
@@ -1478,14 +1476,14 @@ const resources = {
       invalid_phone_number: 'Número de telefone inválido',
 
       select_country: 'Selecionar País',
-      terms_privacy_agree: 'Ao continuar, você concorda com nossos Termos de Serviço e Política de Privacidade',
+      terms_privacy_agree: 'Ao pressionar "Continuar" você concorda em enviar seu número de telefone para o WAB configurado, que fornece funcionalidade de backup e recuperação 2 de 3 para sua chave raiz. O WAB armazenará seu número de telefone e o associará a uma chave de apresentação para recuperação mediante sua solicitação. Entre em contato com seu provedor WAB para mais detalhes ou solicitações de serviço.',
       continue_without_login: 'Continuar sem fazer login',
 
       // Login/Welcome Screen
       metanet: 'BSV Browser',
       browser_with_identity_payments: 'Navegador com identidade e pagamentos integrados',
       get_started: 'Começar',
-      terms_privacy_agreement: 'Ao continuar, você concorda com nossos Termos de Serviço e Política de Privacidade',
+      terms_privacy_agreement: 'Ao selecionar "Começar Agora", você concorda com os Termos de Serviço e Política de Privacidade dos provedores configurados.',
 
       configure_providers: 'Configurar Provedores',
 
@@ -1658,14 +1656,14 @@ const resources = {
       invalid_phone_number: 'অবৈধ ফোন নম্বর',
 
       select_country: 'দেশ নির্বাচন করুন',
-      terms_privacy_agree: 'চালিয়ে যেতে, আপনি আমাদের সেবার শর্তাবলী এবং গোপনীয়তা নীতিতে সম্মত হচ্ছেন',
+      terms_privacy_agree: '"চালিয়ে যান" চাপ দিয়ে আপনি আপনার ফোন নম্বর কনফিগার করা WAB-এ পাঠাতে সম্মত হচ্ছেন, যা আপনার রুট কী-এর জন্য ২/৩ ব্যাকআপ এবং পুনরুদ্ধার কার্যকারিতা প্রদান করে। WAB আপনার ফোন নম্বর সংরক্ষণ করবে এবং আপনার অনুরোধে পুনরুদ্ধারের জন্য এটি একটি প্রেজেন্টেশন কী-এর সাথে যুক্ত করবে। আরও বিস্তারিত বা সেবার অনুরোধের জন্য অনুগ্রহ করে আপনার WAB প্রদানকারীর সাথে যোগাযোগ করুন।',
       continue_without_login: 'লগইন ছাড়া চালিয়ে যান',
 
       // Login/Welcome Screen
       metanet: 'BSV Browser',
       browser_with_identity_payments: 'পরিচয় এবং পেমেন্ট সুবিধা সহ ব্রাউজার',
       get_started: 'শুরু করুন',
-      terms_privacy_agreement: 'চালিয়ে যেতে, আপনি আমাদের সেবার শর্তাবলী এবং গোপনীয়তা নীতিতে সম্মত হচ্ছেন',
+      terms_privacy_agreement: '"এখনই শুরু করুন" নির্বাচন করে, আপনি কনফিগার করা প্রদানকারীদের সেবার শর্তাবলী এবং গোপনীয়তা নীতিতে সম্মত হচ্ছেন।',
 
       configure_providers: 'প্রদানকারী কনফিগার করুন',
 
@@ -1837,7 +1835,7 @@ const resources = {
       invalid_phone_number: 'Неверный номер телефона',
 
       select_country: 'Выберите Страну',
-      terms_privacy_agree: 'Продолжая, вы соглашаетесь с нашими Условиями обслуживания и Политикой конфиденциальности',
+      terms_privacy_agree: 'Нажимая "Продолжить", вы соглашаетесь отправить свой номер телефона настроенному WAB, который обеспечивает функциональность резервного копирования и восстановления 2 из 3 для вашего корневого ключа. WAB сохранит ваш номер телефона и свяжет его с ключом представления для извлечения по вашему запросу. Пожалуйста, свяжитесь с вашим провайдером WAB для получения дополнительной информации или запросов на обслуживание.',
       continue_without_login: 'Продолжить без входа',
 
       // Login/Welcome Screen
@@ -1845,8 +1843,7 @@ const resources = {
       browser_with_identity_payments: 'Браузер со встроенной идентификацией и платежами',
       get_started: 'Начать',
 
-      terms_privacy_agreement:
-        'Продолжая, вы соглашаетесь с нашими Условиями обслуживания и Политикой конфиденциальности',
+      terms_privacy_agreement: 'Выбирая "Начать Сейчас", вы соглашаетесь с Условиями обслуживания и Политикой конфиденциальности настроенных провайдеров.',
       configure_providers: 'Настроить Провайдеров',
 
       // Web3 Benefits Modal
@@ -1998,14 +1995,14 @@ const resources = {
       invalid_phone_number: 'Nomor telepon tidak valid',
 
       select_country: 'Pilih Negara',
-      terms_privacy_agree: 'Dengan melanjutkan, Anda menyetujui Ketentuan Layanan dan Kebijakan Privasi kami',
+      terms_privacy_agree: 'Dengan menekan "Lanjutkan" Anda setuju untuk mengirim nomor telepon Anda ke WAB yang dikonfigurasi, yang menyediakan fungsionalitas backup dan pemulihan 2 dari 3 untuk kunci root Anda. WAB akan menyimpan nomor telepon Anda dan mengaitkannya dengan kunci presentasi untuk pengambilan atas permintaan Anda. Silakan hubungi penyedia WAB Anda untuk detail lebih lanjut atau permintaan layanan.',
       continue_without_login: 'Lanjutkan tanpa masuk',
 
       // Login/Welcome Screen
       metanet: 'BSV Browser',
       browser_with_identity_payments: 'Browser dengan identitas dan pembayaran terintegrasi',
       get_started: 'Mulai',
-      terms_privacy_agreement: 'Dengan melanjutkan, Anda menyetujui Ketentuan Layanan dan Kebijakan Privasi kami',
+      terms_privacy_agreement: 'Dengan memilih "Mulai Sekarang", Anda menyetujui Ketentuan Layanan dan Kebijakan Privasi dari penyedia yang dikonfigurasi.',
 
       configure_providers: 'Konfigurasi Penyedia',
 
