@@ -15,12 +15,12 @@ import { useBrowserMode } from '@/context/BrowserModeContext'
 
 export default function LoginScreen() {
   // Get theme colors
-  const { colors, isDark } = useTheme()
-  const { managers, selectedWabUrl, selectedStorageUrl, selectedMethod, selectedNetwork, finalizeConfig } = useWallet()
-  const { getSnap, setItem, getItem } = useLocalStorage()
-
-  const [startButtonText, setStartButtonText] = useState('Get Started')
   const { t } = useTranslation()
+  const { colors, isDark } = useTheme()
+  const { managers, selectedWabUrl, selectedStorageUrl, selectedMethod, selectedNetwork, finalizeConfig, configStatus } = useWallet()
+  const { getSnap, setItem } = useLocalStorage()
+
+  const [startButtonText, setStartButtonText] = useState(t('get_started'))
   const { showWeb3Benefits, setWeb2Mode } = useBrowserMode()
   const [loading, setLoading] = React.useState(false)
   const [initializing, setInitializing] = useState(true)
@@ -44,28 +44,29 @@ export default function LoginScreen() {
     } catch (error) {
       console.error('Failed to log event', error)
     }
+
     try {
       setLoading(true)
 
       // Fetch WAB info
-      const res = await fetch(`${selectedWabUrl}/info`)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch info: ${res.status}`)
-      }
-      const wabInfo = await res.json()
-      const finalConfig = {
-        wabUrl: selectedWabUrl,
-        wabInfo,
-        method: selectedMethod || wabInfo.supportedAuthMethods[0],
-        network: selectedNetwork,
-        storageUrl: selectedStorageUrl
-      }
-      const success = finalizeConfig(finalConfig)
-      if (!success) {
-        Alert.alert('Error', 'Failed to finalize configuration. Please try again.')
-        return
-      }
-      await setItem('finalConfig', JSON.stringify(finalConfig))
+      // const res = await fetch(`${selectedWabUrl}/info`)
+      // if (!res.ok) {
+      //   throw new Error(`Failed to fetch info: ${res.status}`)
+      // }
+      // const wabInfo = await res.json()
+      // const finalConfig = {
+      //   wabUrl: selectedWabUrl,
+      //   wabInfo,
+      //   method: selectedMethod || wabInfo.supportedAuthMethods[0],
+      //   network: selectedNetwork,
+      //   storageUrl: selectedStorageUrl
+      // }
+      // const success = finalizeConfig(finalConfig)
+      // if (!success) {
+      //   Alert.alert('Error', 'Failed to finalize configuration. Please try again.')
+      //   return
+      // }
+      // await setItem('finalConfig', JSON.stringify(finalConfig))
 
       // if there's a wallet snapshot, load that
       const snap = await getSnap()
@@ -136,6 +137,9 @@ export default function LoginScreen() {
     })()
   }, [getSnap, managers?.walletManager])
 
+  console.log({ configStatus })
+  const readyToStart = configStatus !== 'configured'
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -151,11 +155,16 @@ export default function LoginScreen() {
             </Text>
 
             <TouchableOpacity
-              style={[styles.getStartedButton, { backgroundColor: colors.primary, opacity: loading ? 0.2 : 1 }]}
+              style={[styles.getStartedButton, { 
+                backgroundColor: readyToStart || loading ? colors.buttonBackgroundDisabled : colors.primary, 
+                opacity: readyToStart || loading ? 0.2 : 1 
+              }]}
               onPress={handleGetStarted}
-              disabled={loading}
+              disabled={readyToStart || loading}
             >
-              <Text style={[styles.getStartedButtonText, { color: colors.buttonText }]}>
+              <Text style={[styles.getStartedButtonText, { 
+                color: readyToStart || loading ? colors.buttonTextDisabled : colors.buttonText
+              }]}>
                 {loading ? <ActivityIndicator color="#fff" /> : startButtonText}
               </Text>
             </TouchableOpacity>

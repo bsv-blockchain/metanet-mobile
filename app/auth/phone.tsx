@@ -205,19 +205,6 @@ export default function PhoneScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Skip login button for web2 mode */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: colors.paperBackground, borderWidth: 1, borderColor: colors.inputBorder },
-              loading && { opacity: 0.7 }
-            ]}
-            onPress={handleSkipLogin}
-            disabled={loading}
-          >
-            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Continue without login</Text>
-          </TouchableOpacity>
-
           <Text style={{ fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 10 }}>
             {t('terms_privacy_agree')}
           </Text>

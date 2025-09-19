@@ -68,6 +68,10 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onDismiss, onConfigu
 
   // Fetch wallet configuration info
   const fetchWalletConfig = async () => {
+    if (!wabUrl) {
+      return
+    }
+    setConfigStatus('editing')
     setIsLoadingConfig(true)
     try {
       const res = await fetch(`${wabUrl}/info`)
@@ -91,7 +95,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onDismiss, onConfigu
 
   // Auto-fetch wallet configuration info when component mounts
   useEffect(() => {
-    if (visible && !wabInfo && !managers?.walletManager?.authenticated) {
+    if (visible && !wabInfo && !managers?.walletManager?.authenticated && wabUrl !== '') {
       fetchWalletConfig()
     }
   }, [visible])
@@ -239,7 +243,6 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onDismiss, onConfigu
               <Text style={[styles.text, { fontWeight: 'bold', fontSize: 16, marginBottom: 10 }]}>
                 {t('wallet_auth_backend')}
               </Text>
-              <Text style={[styles.textSecondary, { marginBottom: 15 }]}>{t('wab_description')}</Text>
 
               {isLoadingConfig && (
                 <View style={{ padding: 20, alignItems: 'center' }}>
@@ -269,15 +272,15 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onDismiss, onConfigu
               </TouchableOpacity>
 
               {/* Phone Verification Service */}
-              <Text style={[styles.inputLabel, { marginTop: 15 }]}>{t('phone_verification_service')}</Text>
-              <View style={[styles.row, { flexWrap: 'wrap', marginVertical: 10 }]}>
+              { wabInfo && <Text style={[styles.inputLabel, { marginTop: 15 }]}>{t('phone_verification_service')}</Text>}
+              { wabInfo && <View style={[styles.row, { flexWrap: 'wrap', marginVertical: 10 }]}>
                 {renderChip('Twilio', method, setMethod)}
-                {renderChip('Persona', method, setMethod)}
-              </View>
+                {/* {renderChip('Persona', method, setMethod)} */}
+              </View>}
             </View>
 
             {/* Network Configuration */}
-            <View style={[styles.card, { marginTop: 15 }]}>
+            { wabInfo && method && <View style={[styles.card, { marginTop: 15 }]}>
               <Text style={[styles.text, { fontWeight: 'bold', fontSize: 16, marginBottom: 10 }]}>
                 {t('bsv_network')}
               </Text>
@@ -286,10 +289,10 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onDismiss, onConfigu
                 {renderChip('main', network, setNetwork)}
                 {renderChip('test', network, setNetwork)}
               </View>
-            </View>
+            </View> }
 
             {/* Storage Configuration */}
-            <View style={[styles.card, { marginTop: 15 }]}>
+            { wabInfo && network && <View style={[styles.card, { marginTop: 15 }]}>
               <Text style={[styles.text, { fontWeight: 'bold', fontSize: 16, marginBottom: 10 }]}>
                 {t('wallet_storage_provider')}
               </Text>
@@ -307,7 +310,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({ visible, onDismiss, onConfigu
                   keyboardType="url"
                 />
               </View>
-            </View>
+            </View> }
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
