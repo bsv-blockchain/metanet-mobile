@@ -2,7 +2,7 @@
   "expo": {
     "name": "BSV Browser",
     "slug": "metanet-mobile",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "metanet",
