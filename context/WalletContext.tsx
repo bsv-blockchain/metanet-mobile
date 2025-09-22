@@ -729,7 +729,13 @@ export const WalletContextProvider: React.FC<WalletContextProps> = ({ children =
     ) {
       if (selectedWabUrl === '' || selectedStorageUrl === '') {
         loadConfigFromStorage().then(config => {
-          if (!config) return logout()
+          if (!config) {
+            // No saved config found - ensure user goes to initial page instead of loading stale snap
+            logWithTimestamp(F, 'No saved configuration found, ensuring initial page load')
+            setConfigStatus('initial')
+            setSnapshotLoaded(false)
+            return
+          }
         })
         return
       }
