@@ -509,6 +509,42 @@ export const WalletContextProvider: React.FC<WalletContextProps> = ({ children =
   const [selectedStorageUrl, setSelectedStorageUrl] = useState<string>(DEFAULT_STORAGE_URL)
   logWithTimestamp(F, 'Selected storage URL initialized')
 
+  // Configuration persistence functions
+  const saveConfigToStorage = useCallback(async (config: WABConfig) => {
+    try {
+      const configData = {
+        wabUrl: config.wabUrl,
+        storageUrl: config.storageUrl,
+        method: config.method,
+        network: config.network
+      }
+      await setItem('walletConfig', JSON.stringify(configData))
+      logWithTimestamp(F, 'Configuration saved to AsyncStorage')
+    } catch (error: any) {
+      console.error('Failed to save configuration to storage:', error)
+      logWithTimestamp(F, 'Failed to save configuration to storage', error.message)
+    }
+  }, [setItem])
+
+  const loadConfigFromStorage = useCallback(async () => {
+    try {
+      const savedConfig = await getItem('walletConfig')
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig)
+        setSelectedWabUrl(config.wabUrl || DEFAULT_WAB_URL)
+        setSelectedStorageUrl(config.storageUrl || DEFAULT_STORAGE_URL)
+        setSelectedMethod(config.method || '')
+        setSelectedNetwork(config.network || DEFAULT_CHAIN)
+        logWithTimestamp(F, 'Configuration loaded from AsyncStorage', JSON.stringify(config))
+        return true
+      }
+    } catch (error: any) {
+      console.error('Failed to load configuration from storage:', error)
+      logWithTimestamp(F, 'Failed to load configuration from storage', error.message)
+    }
+    return false
+  }, [getItem])
+
   // Flag that indicates configuration is complete. For returning users,
   // if a snapshot exists we auto-mark configComplete.
   const [configStatus, setConfigStatus] = useState<ConfigStatus>('initial')
@@ -545,6 +581,9 @@ export const WalletContextProvider: React.FC<WalletContextProps> = ({ children =
       setSelectedMethod(method)
       setSelectedNetwork(network)
       setSelectedStorageUrl(storageUrl)
+
+      // Save the configuration to AsyncStorage
+      saveConfigToStorage(wabConfig)
 
       // Save the configuration
       toast.success('Configuration applied successfully!')
@@ -663,18 +702,22 @@ export const WalletContextProvider: React.FC<WalletContextProps> = ({ children =
     [deleteSnap, getSnap]
   )
 
-  // Watch for wallet authentication after snapshot is loaded
+
+  // Load saved configuration from AsyncStorage on component mount
   useEffect(() => {
     ;(async () => {
-      logWithTimestamp(F, 'Checking authentication state')
-      const snap = await getSnap()
-      if (managers?.walletManager?.authenticated && snap) {
-        setSnapshotLoaded(true)
-        logWithTimestamp(F, 'Authentication confirmed, snapshot loaded')
+      logWithTimestamp(F, 'Loading saved configuration from AsyncStorage')
+      const configLoaded = await loadConfigFromStorage()
+      if (configLoaded) {
+        // Check if we have a snapshot and loaded config, mark as configured
+        const snap = await getSnap()
+        if (snap) {
+          setConfigStatus('configured')
+          logWithTimestamp(F, 'Configuration status set to configured (saved config + snapshot)')
+        }
       }
-      logWithTimestamp(F, 'Authentication state check complete')
     })()
-  }, [managers?.walletManager?.authenticated])
+  }, [loadConfigFromStorage, getSnap, managers?.walletManager?.authenticated])
 
   // ---- Build the wallet manager once all required inputs are ready.
   useEffect(() => {
@@ -684,6 +727,12 @@ export const WalletContextProvider: React.FC<WalletContextProps> = ({ children =
       configStatus !== 'editing' && // either user configured or snapshot exists
       !walletBuilt // build only once
     ) {
+      if (selectedWabUrl === '' || selectedStorageUrl === '') {
+        loadConfigFromStorage().then(config => {
+          if (!config) return logout()
+        })
+        return
+      }
       logWithTimestamp(F, 'Starting wallet manager initialization')
       try {
         // Create network service based on selected network
@@ -793,9 +842,18 @@ export const WalletContextProvider: React.FC<WalletContextProps> = ({ children =
       try {
         await setItem('browserMode', 'web2')
         await setItem('recentApps', JSON.stringify([])) // Clear recent web3 apps
+        await setItem('walletConfig', '') // Clear saved wallet configuration
+        logWithTimestamp(F, 'Cleared saved wallet configuration')
       } catch (error) {
         console.warn('Failed to clear browser mode from localStorage:', error)
       }
+
+      // Reset configuration values to defaults
+      setSelectedWabUrl(DEFAULT_WAB_URL)
+      setSelectedStorageUrl(DEFAULT_STORAGE_URL)
+      setSelectedMethod('')
+      setSelectedNetwork(DEFAULT_CHAIN)
+      logWithTimestamp(F, 'Configuration values reset to defaults')
 
       router.dismissAll()
       router.replace('/')
